@@ -99,9 +99,18 @@ const UserManagement = () => {
 
       if (error) throw error;
 
-      // Generate signed URLs for all media files
+      // Fetch media records from DB to get statuses and IDs for admin actions
+      const { data: mediaRecords } = await supabase
+        ?.from('media_files')
+        ?.select('id, file_path, status')
+        ?.eq('user_id', userId)
+        ?.neq('status', 'deleted');
+
+      const recordMap = Object.fromEntries((mediaRecords || []).map(r => [r.file_path, r]));
+
+      // Generate signed URLs for all media files and merge DB status
       const mediaWithUrls = await Promise.all(
-        files
+        (files || [])
           ?.filter(file => {
             const isMedia = /\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|webm)$/i?.test(file?.name);
             return isMedia && file?.name !== '.emptyFolderPlaceholder';
@@ -109,11 +118,14 @@ const UserManagement = () => {
           ?.map(async (file) => {
             const filePath = `${userId}/${file?.name}`;
             const { url } = await getFileUrl('user-media', filePath, false);
+            const record = recordMap[filePath];
             
             return {
               ...file,
               fullPath: filePath,
               url,
+              dbId: record?.id || null,
+              status: record?.status || 'active',
               type: /\.(mp4|mov|avi|webm)$/i?.test(file?.name) ? 'video' : 'image',
               uploadDate: new Date(file.created_at || file.updated_at)?.toLocaleDateString(),
               size: (file?.metadata?.size ? (file?.metadata?.size / 1024 / 1024)?.toFixed(2) : 'Unknown') + ' MB'
@@ -147,9 +159,18 @@ const UserManagement = () => {
     try {
       switch (action) {
         case 'flag':
-          alert(`Media "${media?.name}" has been flagged for review`);
+        case 'unflag': {
+          const newStatus = action === 'flag' ? 'flagged' : 'active';
+          const { error } = await supabase
+            ?.from('media_files')
+            ?.update({ status: newStatus, updated_at: new Date().toISOString() })
+            ?.match({ user_id: selectedUser?.id, file_path: media?.fullPath });
+          if (error) throw error;
+          await loadUserMedia(selectedUser?.id);
+          alert(`Media ${newStatus === 'flagged' ? 'flagged' : 'unflagged'} successfully`);
           break;
-          
+        }
+        
         case 'delete':
           if (confirm(`Are you sure you want to delete "${media?.name}"? This action cannot be undone.`)) {
             const { error } = await supabase?.storage?.from('user-media')?.remove([media?.fullPath]);
@@ -554,7 +575,7 @@ const UserManagement = () => {
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => handleMediaAction('flag', media)}
+                              onClick={() => handleMediaAction(media?.status === 'flagged' ? 'unflag' : 'flag', media)}
                               className="text-white hover:text-white hover:bg-white/20"
                             >
                               <Icon name="Flag" size={14} strokeWidth={2} />

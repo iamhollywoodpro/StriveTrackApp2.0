@@ -99,15 +99,7 @@ const HabitGoalTracker = () => {
     }
 
     try {
-      // Verify user can create habits
-      const { data: canCreate, error: checkError } = await supabase?.rpc('can_user_create_habit');
-      
-      if (checkError || !canCreate) {
-        setError('Unable to create habit. Please ensure your profile is set up correctly.');
-        return;
-      }
-
-      // Only insert fields that exist in the database schema
+      // Only insert fields that exist in the database schema (RLS enforces permissions)
       const { data, error } = await supabase?.from('habits')?.insert([
           {
             name: newHabit?.name?.trim(),
@@ -178,15 +170,8 @@ const HabitGoalTracker = () => {
           return;
         }
 
-        // Award achievements after habit completion
-        try {
-          await supabase?.rpc('check_and_award_achievements', {
-            target_user_id: user?.id
-          });
-        } catch (achievementError) {
-          console.error('Error awarding achievements:', achievementError);
-          // Don't show error for achievement failures
-        }
+        // Achievements and points are handled by DB triggers server-side.
+        // No client RPC call needed.
       }
 
       // Refresh habits list to show updated completion status
@@ -221,15 +206,7 @@ const HabitGoalTracker = () => {
         return;
       }
 
-      // Award achievements after goal creation
-      try {
-        await supabase?.rpc('check_and_award_achievements', {
-          target_user_id: user?.id
-        });
-      } catch (achievementError) {
-        console.error('Error awarding achievements:', achievementError);
-        // Don't show error for achievement failures
-      }
+      // Achievements and points handled by DB triggers (no RPC).
 
       // Success - refresh goals list and close modal
       await fetchGoals();
