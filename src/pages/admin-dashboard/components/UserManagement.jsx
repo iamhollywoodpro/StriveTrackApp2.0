@@ -93,7 +93,7 @@ const UserManagement = () => {
     setMediaLoading(true);
     try {
       // List all media files for the user
-      const { data: files, error } = await supabase?.storage?.from('user-media')?.list(`${userId}/progress`, {
+      const { data: files, error } = await supabase?.storage?.from('user-media')?.list(`${userId}`, {
           limit: 1000,
           sortBy: { column: 'created_at', order: 'desc' }
         });
