@@ -4,18 +4,23 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import tagger from "@dhiwise/component-tagger";
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  // This changes the out put dir from dist to build
-  // comment this out if that isn't relevant for your project
-  build: {
-    outDir: "dist",
-    chunkSizeWarningLimit: 2000,
-  },
-  plugins: [tsconfigPaths(), react(), tagger()],
-  server: {
-    port: 3000,
-    host: "0.0.0.0",
-    strictPort: true,
-    allowedHosts: ['.amazonaws.com', '.builtwithrocket.new']
+export default defineConfig(({ mode }) => {
+  const isProd = mode === 'production';
+  return {
+    build: {
+      outDir: "dist",
+      chunkSizeWarningLimit: 2000,
+      sourcemap: false,
+      minify: false,
+      cssCodeSplit: true
+    },
+    // Only enable the heavy tagger plugin in development to reduce build memory
+    plugins: [tsconfigPaths(), react(), ...(isProd ? [] : [tagger()])],
+    server: {
+      port: 3000,
+      host: "0.0.0.0",
+      strictPort: true,
+      allowedHosts: ['.amazonaws.com', '.builtwithrocket.new']
+    }
   }
 });
