@@ -1,0 +1,8 @@
+name = "strivetrackapp2-0"
+compatibility_date = "2024-01-01"
+# Tell Wrangler/Pages where the built assets live
+pages_build_output_dir = "./dist"
+
+# No functions/worker used for this project. This file exists to satisfy
+# Cloudflare Pages' "Wrangler configuration file (BETA)" detection and
+# avoid pre-build internal errors.
