@@ -62,9 +62,9 @@
     "use-sound": "^5.0.0"
   },
   "scripts": {
-    "start": "vite",
+    "start": "vite --port 3000 --strictPort",
     "build": "vite build --sourcemap",
-    "serve": "vite preview"
+    "serve": "vite preview --port 3000 --strictPort"
   },
   "eslintConfig": {
     "extends": [
