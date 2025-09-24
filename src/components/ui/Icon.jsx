@@ -34,14 +34,14 @@ const IconMap = {
   
   // Content & Media
   Camera, Image, Video, Music, File, Archive,
-  Book, Bookmark, Calendar, CalendarIcon,
+  Book, Bookmark, CalendarIcon,
   
   // User & Social
   User, Users, MessageCircle, Mail, Phone,
   MapPin, Activity, TrendingUp,
   
   // Fitness specific
-  Target, BarChart3, Calendar, Clock,
+  BarChart3, Clock,
   
   // Media controls
   Play, Pause, SkipBack, SkipForward,

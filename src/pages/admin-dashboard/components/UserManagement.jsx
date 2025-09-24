@@ -51,7 +51,6 @@ const UserManagement = () => {
       }));
 
       setUsers(processed);
-      }
     } catch (error) {
       console.error('Error loading users:', error);
       setUsers([]);
@@ -108,7 +107,7 @@ const UserManagement = () => {
             return isMedia && file?.name !== '.emptyFolderPlaceholder';
           })
           ?.map(async (file) => {
-            const filePath = `${userId}/progress/${file?.name}`;
+            const filePath = `${userId}/${file?.name}`;
             const { url } = await getFileUrl('user-media', filePath, false);
             
             return {
