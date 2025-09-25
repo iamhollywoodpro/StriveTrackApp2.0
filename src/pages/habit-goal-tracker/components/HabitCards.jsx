@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabase';
+import { apiGet, apiSend } from '../../../lib/api';
 import Icon from '../../../components/ui/Icon';
 import Button from '../../../components/ui/Button';
 
@@ -20,30 +21,33 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
     try {
       const today = new Date();
       const sevenDaysAgo = new Date(today.getTime() - (7 * 24 * 60 * 60 * 1000));
-      
-      const { data, error } = await supabase
-        ?.from('habit_completions')
-        ?.select('*')
-        ?.eq('user_id', user?.id)
-        ?.gte('completed_date', sevenDaysAgo?.toISOString()?.split('T')?.[0])
-        ?.lte('completed_date', today?.toISOString()?.split('T')?.[0]);
 
-      if (error) {
-        console.error('Error fetching completion data:', error);
-        return;
-      }
+      const from = sevenDaysAgo?.toISOString()?.split('T')?.[0];
+      const to = today?.toISOString()?.split('T')?.[0];
+
+      // Try to fetch logs from Worker
+      const res = await apiGet(`/habits?from=${from}&to=${to}`, supabase);
 
       // Organize completion data by habit and date
       const completionMap = {};
-      habits?.forEach(habit => {
-        completionMap[habit?.id] = {};
-      });
+      habits?.forEach(habit => { completionMap[habit?.id] = {}; });
 
-      data?.forEach(completion => {
-        if (completionMap?.[completion?.habit_id]) {
-          completionMap[completion?.habit_id][completion?.completed_date] = true;
-        }
-      });
+      if (Array.isArray(res?.logs)) {
+        res.logs.forEach((log) => {
+          const hid = log?.habit_id || log?.habitId;
+          const date = log?.date || log?."date" || log?.logged_date || log?.completed_date;
+          if (hid && date && completionMap[hid]) completionMap[hid][date] = true;
+        });
+      } else if (Array.isArray(res?.items)) {
+        res.items.forEach((h) => {
+          const hid = h?.id;
+          const logs = h?.logs || h?.recent_logs || [];
+          logs.forEach((lg) => {
+            const date = typeof lg === 'string' ? lg : (lg?.date || lg?."date" || lg?.logged_date || lg?.completed_date);
+            if (hid && date && completionMap[hid]) completionMap[hid][date] = true;
+          });
+        });
+      }
 
       setCompletionData(completionMap);
     } catch (error) {
@@ -63,49 +67,14 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
 
     try {
       const today = new Date();
-      // Calculate the date for the clicked day (0 = today, 1 = yesterday, etc.)
       const targetDate = new Date(today.getTime() - (dayIndex * 24 * 60 * 60 * 1000));
       const dateStr = targetDate?.toISOString()?.split('T')?.[0];
-      
-      // Check if habit is already completed for this date
       const isCompleted = completionData?.[habitId]?.[dateStr] || false;
-      
-      if (isCompleted) {
-        // Remove completion
-        const { error } = await supabase
-          ?.from('habit_completions')
-          ?.delete()
-          ?.eq('habit_id', habitId)
-          ?.eq('user_id', user?.id)
-          ?.eq('completed_date', dateStr);
 
-        if (error) {
-          console.error('Error removing completion:', error);
-          return;
-        }
+      if (typeof onToggleHabit === 'function') {
+        await onToggleHabit(habitId, isCompleted);
       } else {
-        // Add completion
-        const { error } = await supabase
-          ?.from('habit_completions')
-          ?.insert([{
-            habit_id: habitId,
-            user_id: user?.id,
-            completed_date: dateStr
-          }]);
-
-        if (error) {
-          console.error('Error adding completion:', error);
-          return;
-        }
-
-        // Award achievements for habit completion
-        try {
-          await supabase?.rpc('check_and_award_achievements', {
-            target_user_id: user?.id
-          });
-        } catch (achievementError) {
-          console.error('Error awarding achievements:', achievementError);
-        }
+        await apiSend('POST', `/habits/${habitId}/log`, { date: dateStr, remove: !!isCompleted }, supabase);
       }
 
       // Refresh completion data

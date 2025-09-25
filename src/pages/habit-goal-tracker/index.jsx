@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { apiGet, apiSend } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
 import HabitCards from './components/HabitCards';
@@ -24,19 +25,9 @@ const HabitGoalTracker = () => {
     if (!user?.id) return;
 
     try {
-      const { data, error } = await supabase
-        ?.from('habits')
-        ?.select('*')
-        ?.eq('user_id', user?.id)
-        ?.order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching habits:', error);
-        setHabits([]);
-        return;
-      }
-
-      setHabits(data || []);
+      const res = await apiGet('/habits', supabase);
+      const items = res?.items ?? res ?? [];
+      setHabits(items);
     } catch (error) {
       console.error('Error fetching habits:', error);
       setHabits([]);
@@ -48,29 +39,23 @@ const HabitGoalTracker = () => {
     if (!user?.id) return;
 
     try {
-      const { data, error } = await supabase?.from('goals')?.select('*')?.eq('user_id', user?.id)?.order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching goals:', error);
-        setGoals([]);
-        return;
-      }
-
+      const res = await apiGet('/goals', supabase);
+      const data = res?.items ?? res ?? [];
       // Transform goals data to match component expectations
-      const transformedGoals = data?.map(goal => ({
+      const transformedGoals = data.map(goal => ({
         id: goal?.id,
         title: goal?.title,
         description: goal?.description,
         targetDate: goal?.target_date ? new Date(goal?.target_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         progress: goal?.progress || 0,
-        target: 100, // Default target
+        target: 100,
         unit: "%",
         currentValue: goal?.progress || 0,
-        category: "Personal", // Default category
-        priority: "Medium", // Default priority
-        milestones: [], // Would need milestone tracking
+        category: goal?.category || "Personal",
+        priority: goal?.priority || "Medium",
+        milestones: goal?.milestones || [],
         created_at: goal?.created_at
-      })) || [];
+      }));
 
       setGoals(transformedGoals);
     } catch (error) {
@@ -99,28 +84,12 @@ const HabitGoalTracker = () => {
     }
 
     try {
-      // Only insert fields that exist in the database schema (RLS enforces permissions)
-      const { data, error } = await supabase?.from('habits')?.insert([
-          {
-            name: newHabit?.name?.trim(),
-            user_id: user?.id,
-            emoji: newHabit?.emoji || '💪',
-            difficulty: newHabit?.difficulty || 'Medium',
-            days_of_week: newHabit?.days_of_week || [0, 1, 2, 3, 4, 5, 6]
-          }
-        ])?.select()?.single();
-
-      if (error) {
-        console.error('Error creating habit:', error);
-        
-        // Handle specific error cases
-        if (error?.code === '23503') {
-          setError('Profile setup required. Please refresh the page and try again.');
-        } else {
-          setError('Failed to create habit: ' + (error?.message || 'Unknown error'));
-        }
-        return;
-      }
+      await apiSend('POST', '/habits', {
+        name: newHabit?.name?.trim(),
+        emoji: newHabit?.emoji || '💪',
+        difficulty: newHabit?.difficulty || 'Medium',
+        days_of_week: newHabit?.days_of_week || [0, 1, 2, 3, 4, 5, 6]
+      }, supabase);
 
       // Success - refresh habits list and close modal
       await fetchHabits();
@@ -140,39 +109,8 @@ const HabitGoalTracker = () => {
       const today = new Date();
       const dateStr = today?.toISOString()?.split('T')?.[0];
 
-      if (completed) {
-        // Remove completion
-        const { error } = await supabase
-          ?.from('habit_completions')
-          ?.delete()
-          ?.eq('habit_id', habitId)
-          ?.eq('user_id', user?.id)
-          ?.eq('completed_date', dateStr);
-
-        if (error) {
-          console.error('Error removing habit completion:', error);
-          setError('Failed to update habit completion');
-          return;
-        }
-      } else {
-        // Add completion
-        const { error } = await supabase
-          ?.from('habit_completions')
-          ?.insert([{
-            habit_id: habitId,
-            user_id: user?.id,
-            completed_date: dateStr
-          }]);
-
-        if (error) {
-          console.error('Error adding habit completion:', error);
-          setError('Failed to complete habit');
-          return;
-        }
-
-        // Achievements and points are handled by DB triggers server-side.
-        // No client RPC call needed.
-      }
+      // Toggle via Worker API (remove if already completed)
+      await apiSend('POST', `/habits/${habitId}/log`, { date: dateStr, remove: !!completed }, supabase);
 
       // Refresh habits list to show updated completion status
       await fetchHabits();
@@ -190,23 +128,11 @@ const HabitGoalTracker = () => {
     }
 
     try {
-      const { data, error } = await supabase?.from('goals')?.insert([
-          {
-            title: newGoal?.title?.trim(),
-            description: newGoal?.description?.trim() || null,
-            target_date: newGoal?.target_date || null,
-            user_id: user?.id,
-            progress: 0
-          }
-        ])?.select()?.single();
-
-      if (error) {
-        console.error('Error creating goal:', error);
-        setError('Failed to create goal: ' + (error?.message || 'Unknown error'));
-        return;
-      }
-
-      // Achievements and points handled by DB triggers (no RPC).
+      await apiSend('POST', '/goals', {
+        title: newGoal?.title?.trim(),
+        description: newGoal?.description?.trim() || null,
+        target_date: newGoal?.target_date || null
+      }, supabase);
 
       // Success - refresh goals list and close modal
       await fetchGoals();
@@ -223,18 +149,7 @@ const HabitGoalTracker = () => {
     if (!user?.id) return;
 
     try {
-      const { error } = await supabase
-        ?.from('habits')
-        ?.delete()
-        ?.eq('id', habitId)
-        ?.eq('user_id', user?.id);
-
-      if (error) {
-        console.error('Error deleting habit:', error);
-        setError('Failed to delete habit');
-        return;
-      }
-
+      await apiSend('DELETE', `/habits/${habitId}`, null, supabase);
       // Refresh habits list
       await fetchHabits();
     } catch (error) {
@@ -248,18 +163,7 @@ const HabitGoalTracker = () => {
     if (!user?.id) return;
 
     try {
-      const { error } = await supabase
-        ?.from('goals')
-        ?.delete()
-        ?.eq('id', goalId)
-        ?.eq('user_id', user?.id);
-
-      if (error) {
-        console.error('Error deleting goal:', error);
-        setError('Failed to delete goal');
-        return;
-      }
-
+      await apiSend('DELETE', `/goals/${goalId}`, null, supabase);
       // Refresh goals list
       await fetchGoals();
     } catch (error) {

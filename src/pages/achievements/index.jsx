@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { apiGet } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import AchievementGrid from './components/AchievementGrid';
 import CategoryFilter from './components/CategoryFilter';
@@ -24,57 +25,27 @@ const Achievements = () => {
     try {
       setLoading(true);
 
-      // Get all available achievements
-      const { data: allAchievements, error: achievementsError } = await supabase?.from('achievements')?.select('*')?.order('points', { ascending: false });
+      const res = await apiGet('/achievements', supabase);
+      const items = res?.items ?? [];
+      const total_points = res?.total_points ?? 0;
 
-      if (achievementsError) {
-        console.error('Error fetching achievements:', achievementsError);
-        setAchievementsData([]);
-        return;
-      }
-
-      // Get user's earned achievements
-      const { data: earnedAchievements, error: userError } = await supabase?.from('user_achievements')?.select(`
-          id,
-          earned_at,
-          achievement_id,
-          achievements (
-            id,
-            name,
-            description,
-            icon,
-            points
-          )
-        `)?.eq('user_id', user?.id)?.order('earned_at', { ascending: false });
-
-      if (userError) {
-        console.error('Error fetching user achievements:', userError);
-        setUserAchievements([]);
-      } else {
-        setUserAchievements(earnedAchievements || []);
-      }
-
-      // Transform achievements data
-      const transformedAchievements = allAchievements?.map(achievement => {
-        const userAchievement = earnedAchievements?.find(ua => ua?.achievement_id === achievement?.id);
-        const isEarned = !!userAchievement;
-        
-        return {
-          id: achievement?.id,
-          title: achievement?.name,
-          description: achievement?.description,
-          category: achievement?.points > 100 ? 'progress' : achievement?.points > 50 ? 'consistency' : 'special',
-          rarity: achievement?.points > 200 ? 'legendary' : achievement?.points > 100 ? 'epic' : achievement?.points > 50 ? 'rare' : 'common',
-          points: achievement?.points,
-          earnedAt: userAchievement ? new Date(userAchievement?.earned_at) : null,
-          isEarned,
-          unlockCriteria: achievement?.description,
-          progress: isEarned ? 100 : 0,
-          artwork: achievement?.icon || '🏆'
-        };
-      }) || [];
+      // Map Worker response to UI shape
+      const transformedAchievements = items.map((a) => ({
+        id: a?.id || a?.code,
+        title: a?.name || a?.code,
+        description: a?.description || a?.code,
+        category: a?.category || (a?.points > 100 ? 'progress' : a?.points > 50 ? 'consistency' : 'special'),
+        rarity: a?.points > 200 ? 'legendary' : a?.points > 100 ? 'epic' : a?.points > 50 ? 'rare' : 'common',
+        points: a?.points || 0,
+        earnedAt: a?.created_at ? new Date(a?.created_at) : null,
+        isEarned: !!a,
+        unlockCriteria: a?.description || a?.code,
+        progress: 100,
+        artwork: a?.icon || '🏆'
+      }));
 
       setAchievementsData(transformedAchievements);
+      setUserAchievements(items);
 
     } catch (error) {
       console.error('Error fetching achievements:', error);

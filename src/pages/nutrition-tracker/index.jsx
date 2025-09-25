@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { apiGet, apiSend } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import Icon from '../../components/AppIcon';
 import Button from '../../components/ui/Button';
@@ -32,16 +33,10 @@ const NutritionTracker = () => {
     try {
       setLoading(true);
       
-      // Get today's nutrition entries
+      // Get today's nutrition entries from Worker
       const today = new Date()?.toISOString()?.split('T')?.[0];
-      
-      const { data, error } = await supabase?.from('nutrition_entries')?.select('*')?.eq('user_id', user?.id)?.eq('logged_date', today)?.order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching nutrition data:', error);
-        // Keep empty meals structure
-        return;
-      }
+      const res = await apiGet(`/nutrition?date=${today}`, supabase);
+      const entries = res?.items ?? res ?? [];
 
       // Transform nutrition entries to meals structure
       const mealData = {
@@ -51,13 +46,13 @@ const NutritionTracker = () => {
         snacks: { name: 'Snacks', foods: [] }
       };
 
-      data?.forEach(entry => {
+      entries?.forEach(entry => {
         const mealType = (entry?.meal_type || 'snacks')?.toLowerCase();
         if (mealData?.[mealType]) {
           mealData?.[mealType]?.foods?.push({
             id: entry?.id,
             name: entry?.meal_name,
-            image: '/assets/images/no_image.png', // Default image
+            image: '/assets/images/no_image.png',
             portion: '1 serving',
             calories: entry?.calories || 0,
             protein: entry?.protein || 0,
@@ -68,8 +63,6 @@ const NutritionTracker = () => {
       });
 
       setMeals(mealData);
-      
-      // Set default water intake (would need separate tracking)
       setWaterIntake(0);
 
     } catch (error) {
@@ -117,24 +110,15 @@ const NutritionTracker = () => {
     if (!user?.id) return;
 
     try {
-      // Add to database
-      const { data, error } = await supabase?.from('nutrition_entries')?.insert([
-          {
-            user_id: user?.id,
-            meal_name: food?.name,
-            meal_type: mealType?.toLowerCase(),
-            calories: food?.calories || 0,
-            protein: food?.protein || 0,
-            carbs: food?.carbs || 0,
-            fat: food?.fat || 0,
-            logged_date: new Date()?.toISOString()?.split('T')?.[0]
-          }
-        ])?.select()?.single();
-
-      if (error) {
-        console.error('Error adding food:', error);
-        return;
-      }
+      await apiSend('POST', '/nutrition', {
+        meal_name: food?.name,
+        meal_type: mealType?.toLowerCase(),
+        calories: food?.calories || 0,
+        protein: food?.protein || 0,
+        carbs: food?.carbs || 0,
+        fat: food?.fat || 0,
+        date: new Date()?.toISOString()?.split('T')?.[0]
+      }, supabase);
 
       // Refresh nutrition data
       fetchNutritionData();
@@ -147,12 +131,7 @@ const NutritionTracker = () => {
     if (!user?.id) return;
 
     try {
-      const { error } = await supabase?.from('nutrition_entries')?.delete()?.eq('id', foodId)?.eq('user_id', user?.id);
-
-      if (error) {
-        console.error('Error removing food:', error);
-        return;
-      }
+      await apiSend('DELETE', `/nutrition/${foodId}`, null, supabase);
 
       // Remove from local state
       setMeals(prev => ({
