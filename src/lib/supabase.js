@@ -7,7 +7,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper function to check if user is admin
 export const isAdminUser = (user) => {
-  return user?.email === 'iamhollywoodpro@protonmail.com'
+  return (user?.email || '').toLowerCase() === 'iamhollywoodpro@protonmail.com'
+}
+
+export const getAccessToken = async () => {
+  const { data } = await supabase.auth.getSession()
+  return data?.session?.access_token || null
 }
 
 // Storage utilities

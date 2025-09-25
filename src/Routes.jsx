@@ -3,6 +3,7 @@ import { BrowserRouter, Routes as RouterRoutes, Route } from "react-router-dom";
 import ScrollToTop from "components/ScrollToTop";
 import ErrorBoundary from "components/ErrorBoundary";
 import ProtectedRoute from "components/ProtectedRoute";
+import AdminRoute from "components/AdminRoute";
 import { AuthProvider } from "./contexts/AuthContext";
 import NotFound from "pages/NotFound";
 import UserLogin from './pages/user-login';
@@ -39,8 +40,8 @@ const Routes = () => {
             <Route path="/habit-goal-tracker" element={<ProtectedRoute><HabitGoalTracker /></ProtectedRoute>} />
             <Route path="/community-hub" element={<ProtectedRoute><CommunityHub /></ProtectedRoute>} />
             <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
-            <Route path="/admin-dashboard" element={<ProtectedRoute><AdminDashboard /></ProtectedRoute>} />
-            <Route path="/admin-dashboard/users/:id" element={<ProtectedRoute><AdminUserProfile /></ProtectedRoute>} />
+            <Route path="/admin-dashboard" element={<ProtectedRoute><AdminRoute><AdminDashboard /></AdminRoute></ProtectedRoute>} />
+            <Route path="/admin-dashboard/users/:id" element={<ProtectedRoute><AdminRoute><AdminUserProfile /></AdminRoute></ProtectedRoute>} />
             <Route path="/user-profile" element={<ProtectedRoute><UserProfile /></ProtectedRoute>} />
             <Route path="/media-comparison-tool" element={<ProtectedRoute><MediaComparisonTool /></ProtectedRoute>} />
             
