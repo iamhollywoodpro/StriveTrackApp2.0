@@ -52,11 +52,8 @@ const AdminUserProfile = () => {
           let signedUrl = null
           if (m?.file_path) {
             try {
-              const { data: urlData } = await supabase
-                ?.storage
-                ?.from(BUCKET)
-                ?.createSignedUrl(m?.file_path, 3600)
-              signedUrl = urlData?.signedUrl || null
+              const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE
+              signedUrl = `${API_BASE}/media/${encodeURIComponent(m?.file_path)}`
             } catch {}
           }
           return {
@@ -130,9 +127,15 @@ const AdminUserProfile = () => {
     try {
       switch (action) {
         case 'download': {
-          const { data, error } = await supabase?.storage?.from(BUCKET)?.download(item?.filePath)
-          if (error) throw error
-          const url = URL.createObjectURL(data)
+          const { data: sess } = await supabase.auth.getSession()
+          const token = sess?.session?.access_token
+          const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE
+          const resp = await fetch(`${API_BASE}/media/${encodeURIComponent(item?.filePath)}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          })
+          if (!resp.ok) throw new Error('Download failed')
+          const blob = await resp.blob()
+          const url = URL.createObjectURL(blob)
           const link = document.createElement('a')
           link.href = url
           link.download = item?.name || 'download'
@@ -161,7 +164,15 @@ const AdminUserProfile = () => {
             ?.eq('id', item?.id)
           if (dbError) throw dbError
           if (item?.filePath) {
-            await supabase?.storage?.from(BUCKET)?.remove([item?.filePath])
+            try {
+              const { data: sess } = await supabase.auth.getSession()
+              const token = sess?.session?.access_token
+              const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE
+              await fetch(`${API_BASE}/media/${encodeURIComponent(item?.filePath)}`, {
+                method: 'DELETE',
+                headers: { Authorization: `Bearer ${token}` }
+              })
+            } catch {}
           }
           await loadMedia()
           break

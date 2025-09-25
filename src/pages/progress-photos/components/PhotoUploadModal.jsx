@@ -79,31 +79,43 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       const timestamp = new Date()?.getTime();
       const fileName = `${user?.id}/${timestamp}-${selectedFile?.name?.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
 
-      // Step 1: Upload file to Supabase storage
-      const { data: uploadData, error: uploadError } = await supabase
-        ?.storage
-        ?.from('user-media')
-        ?.upload(fileName, selectedFile, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // Step 1: Upload file to Cloudflare R2 via Worker proxy
+      // Worker expects: Authorization: Bearer <supabase access token>
+      const session = await supabase?.auth?.getSession();
+      const accessToken = session?.data?.session?.access_token;
+      if (!accessToken) throw new Error('Missing auth token');
 
-      if (uploadError) {
-        throw new Error(`Upload failed: ${uploadError.message}`);
+      const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+      if (!API_BASE) throw new Error('Media API is not configured');
+
+      const r2UploadResp = await fetch(`${API_BASE}/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': selectedFile?.type || 'application/octet-stream',
+          'x-file-name': selectedFile?.name || 'upload.bin'
+        },
+        body: selectedFile
+      });
+
+      if (!r2UploadResp.ok) {
+        const msg = await r2UploadResp.text();
+        throw new Error(`Upload failed: ${msg}`);
       }
+      const { key } = await r2UploadResp.json();
 
       // Step 2: Determine media type based on file type
       const isVideo = selectedFile?.type?.startsWith('video/');
       const mediaType = isVideo ? 'video' : 'image';
 
-      // Step 3: Save media record to database with new fields
+      // Step 3: Save media record to database with new fields (file_path=R2 key)
       const { data: mediaData, error: dbError } = await supabase
         ?.from('media_files')
         ?.insert([
           {
             user_id: user?.id,
             filename: selectedFile?.name,
-            file_path: uploadData?.path,
+            file_path: key, // R2 object key
             file_size: selectedFile?.size,
             mime_type: selectedFile?.type,
             media_type: mediaType,
@@ -117,21 +129,25 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
         ?.single();
 
       if (dbError) {
-        // Clean up uploaded file if database insert fails
-        await supabase?.storage?.from('user-media')?.remove([fileName]);
+        // Clean up uploaded file in R2 if database insert fails
+        try {
+          const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+          await fetch(`${API_BASE}/media/${encodeURIComponent(key)}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+        } catch {}
         throw new Error(`Failed to save media record: ${dbError.message}`);
       }
 
-      // Step 4: Create signed URL for immediate display
-      const { data: signedUrlData } = await supabase
-        ?.storage
-        ?.from('user-media')
-        ?.createSignedUrl(uploadData?.path, 7200); // 2 hours expiry
+      // Step 4: Build a proxied view URL from Worker (no signed URL needed)
+      const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+      const r2ViewUrl = `${API_BASE}/media/${encodeURIComponent(key)}`;
 
       // Step 5: Notify parent component with new photo data
       const newPhoto = {
         id: mediaData?.id,
-        imageUrl: signedUrlData?.signedUrl || '/assets/images/no_image.png',
+        imageUrl: r2ViewUrl,
         type: progressType,
         privacy: privacyLevel,
         notes: description?.trim() || selectedFile?.name,

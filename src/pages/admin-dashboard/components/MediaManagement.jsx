@@ -89,46 +89,33 @@ const MediaManagement = () => {
       }
       const userMap = new Map(users.map((u) => [u.id, u]));
 
-      // Generate signed URLs for each media
-      const processed = await Promise.all(
-        (data || []).map(async (m) => {
-          let signedUrl = null;
-          if (m?.file_path) {
-            try {
-              const { data: urlData, error: urlErr } = await supabase
-                ?.storage
-                ?.from(BUCKET)
-                ?.createSignedUrl(m?.file_path, 3600);
-              if (!urlErr) signedUrl = urlData?.signedUrl || null;
-            } catch (e) {
-              console.warn('Signed URL generation failed:', e);
-            }
-          }
-
-          const u = userMap.get(m?.user_id);
-          return {
-            id: m?.id,
-            type: m?.media_type || (m?.mime_type?.startsWith('video') ? 'video' : 'image'),
-            filename: m?.filename || m?.file_path?.split('/')?.pop() || 'File',
-            uploadDate: m?.uploaded_at ? new Date(m?.uploaded_at) : null,
-            size: m?.file_size ? `${(m?.file_size / 1024 / 1024).toFixed(1)} MB` : 'Unknown',
-            userName: u?.name || 'Unknown User',
-            userEmail: u?.email || 'No email available',
-            userFullName: u?.name || null,
-            userId: m?.user_id,
-            userIsAdmin: u?.isAdmin || false,
-            flagged: m?.status === 'flagged',
-            url: signedUrl,
-            filePath: m?.file_path,
-            mimeType: m?.mime_type,
-            status: m?.status,
-            progressType: m?.progress_type,
-            privacyLevel: m?.privacy_level,
-            description: m?.description || null,
-            views: Math.floor(Math.random() * 1000),
-          };
-        })
-      );
+      // Build proxied URLs through R2 media Worker (no signed URLs)
+      const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+      const processed = (data || []).map((m) => {
+        const u = userMap.get(m?.user_id);
+        const url = m?.file_path ? `${API_BASE}/media/${encodeURIComponent(m.file_path)}` : null;
+        return {
+          id: m?.id,
+          type: m?.media_type || (m?.mime_type?.startsWith('video') ? 'video' : 'image'),
+          filename: m?.filename || m?.file_path?.split('/')?.pop() || 'File',
+          uploadDate: m?.uploaded_at ? new Date(m?.uploaded_at) : null,
+          size: m?.file_size ? `${(m?.file_size / 1024 / 1024).toFixed(1)} MB` : 'Unknown',
+          userName: u?.name || 'Unknown User',
+          userEmail: u?.email || 'No email available',
+          userFullName: u?.name || null,
+          userId: m?.user_id,
+          userIsAdmin: u?.isAdmin || false,
+          flagged: m?.status === 'flagged',
+          url,
+          filePath: m?.file_path,
+          mimeType: m?.mime_type,
+          status: m?.status,
+          progressType: m?.progress_type,
+          privacyLevel: m?.privacy_level,
+          description: m?.description || null,
+          views: Math.floor(Math.random() * 1000),
+        };
+      });
 
       // backfill mediaCount per user for dropdown
       const counts = new Map();
@@ -290,12 +277,16 @@ const MediaManagement = () => {
             alert('File path not available.');
             return;
           }
-          const { data: fileData, error: downloadError } = await supabase
-            ?.storage
-            ?.from(BUCKET)
-            ?.download(mediaItem?.filePath);
-          if (downloadError) throw downloadError;
-          const url = URL.createObjectURL(fileData);
+          // Download via R2 proxy
+          const session = await supabase?.auth?.getSession();
+          const accessToken = session?.data?.session?.access_token;
+          const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+          const resp = await fetch(`${API_BASE}/media/${encodeURIComponent(mediaItem?.filePath)}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          if (!resp.ok) throw new Error('Download failed');
+          const blob = await resp.blob();
+          const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
           link.download = mediaItem?.filename || 'download';
@@ -327,8 +318,17 @@ const MediaManagement = () => {
             ?.eq('id', mediaItem?.id);
           if (dbError) throw dbError;
           if (mediaItem?.filePath) {
-            const { error: storageError } = await supabase?.storage?.from(BUCKET)?.remove([mediaItem?.filePath]);
-            if (storageError) console.warn('Storage deletion failed:', storageError);
+            try {
+              const session = await supabase?.auth?.getSession();
+              const accessToken = session?.data?.session?.access_token;
+              const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+              await fetch(`${API_BASE}/media/${encodeURIComponent(mediaItem?.filePath)}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+              });
+            } catch (e) {
+              console.warn('R2 deletion failed:', e);
+            }
           }
           await loadMediaFiles(selectedUserId);
           break;

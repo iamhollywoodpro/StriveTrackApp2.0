@@ -20,7 +20,15 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: "0.0.0.0",
       strictPort: true,
-      allowedHosts: ['.amazonaws.com', '.builtwithrocket.new']
+      allowedHosts: ['.amazonaws.com', '.builtwithrocket.new'],
+      proxy: {
+        // If you want local dev to hit a locally running Worker at 8787
+        '/api/media': {
+          target: 'http://localhost:8787',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api\/media/, ''),
+        }
+      }
     }
   }
 });

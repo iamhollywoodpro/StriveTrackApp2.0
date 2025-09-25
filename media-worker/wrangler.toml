@@ -1,0 +1,16 @@
+name = "strivetrack-media-worker"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# R2 binding (must exist in your CF account)
+r2_buckets = [
+  { binding = "R2_BUCKET", bucket_name = "strivetrack-media" }
+]
+
+[vars]
+# Set these via `wrangler secret put` for sensitive values
+# SUPABASE_SERVICE_ROLE  = ""
+# SIGNING_SECRET         = ""
+SUPABASE_URL = ""
+# Optional, used to verify tokens via Auth API
+SUPABASE_ANON_KEY = ""
