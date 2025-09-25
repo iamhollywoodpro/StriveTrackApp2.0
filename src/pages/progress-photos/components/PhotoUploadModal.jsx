@@ -108,53 +108,22 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       const isVideo = selectedFile?.type?.startsWith('video/');
       const mediaType = isVideo ? 'video' : 'image';
 
-      // Step 3: Save media record to database with new fields (file_path=R2 key)
-      const { data: mediaData, error: dbError } = await supabase
-        ?.from('media_files')
-        ?.insert([
-          {
-            user_id: user?.id,
-            filename: selectedFile?.name,
-            file_path: key, // R2 object key
-            file_size: selectedFile?.size,
-            mime_type: selectedFile?.type,
-            media_type: mediaType,
-            progress_type: progressType,
-            privacy_level: privacyLevel,
-            description: description?.trim() || null,
-            status: 'active'
-          }
-        ])
-        ?.select()
-        ?.single();
+      // Step 3: Worker already writes a media row into D1.
+      // Build a proxied view URL from Worker (no signed URL needed)
+      const API_BASE_2 = import.meta.env?.VITE_MEDIA_API_BASE;
+      const r2ViewUrl = `${API_BASE_2}/media/${encodeURIComponent(key)}`;
 
-      if (dbError) {
-        // Clean up uploaded file in R2 if database insert fails
-        try {
-          const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
-          await fetch(`${API_BASE}/media/${encodeURIComponent(key)}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${accessToken}` }
-          });
-        } catch {}
-        throw new Error(`Failed to save media record: ${dbError.message}`);
-      }
-
-      // Step 4: Build a proxied view URL from Worker (no signed URL needed)
-      const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
-      const r2ViewUrl = `${API_BASE}/media/${encodeURIComponent(key)}`;
-
-      // Step 5: Notify parent component with new photo data
+      // Step 4: Notify parent with minimal card data; caller will refresh list from /api/media
       const newPhoto = {
-        id: mediaData?.id,
+        key,
         imageUrl: r2ViewUrl,
         type: progressType,
         privacy: privacyLevel,
         notes: description?.trim() || selectedFile?.name,
-        date: mediaData?.uploaded_at,
+        date: new Date().toISOString(),
         points: 25,
         filename: selectedFile?.name,
-        mediaType: mediaType
+        mediaType
       };
 
       onUpload?.(newPhoto);

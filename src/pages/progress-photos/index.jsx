@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { apiGet } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
@@ -35,12 +36,25 @@ const ProgressPhotos = () => {
     try {
       setLoading(true);
       
-      const { data, error } = await supabase
-        ?.from('media_files')
-        ?.select('*')
-        ?.eq('user_id', user?.id)
-        ?.eq('status', 'active')
-        ?.order('uploaded_at', { ascending: false });
+      const res = await apiGet('/media', supabase);
+      if (!res || !Array.isArray(res.items)) {
+        setError('Failed to load photos. Please refresh the page.');
+        setPhotos([]);
+        return;
+      }
+      const data = res.items.map((m) => ({
+        id: m.key,
+        imageUrl: m.url,
+        type: 'progress',
+        privacy: 'private',
+        notes: m.key.split('/').pop(),
+        date: new Date(m.createdAt).toISOString(),
+        points: 25,
+        filename: m.key.split('/').pop(),
+        mediaType: (m.contentType || '').startsWith('video/') ? 'video' : 'image',
+        file_size: 0
+      }));
+      const error = null;
 
       if (error) {
         setError('Failed to load photos. Please refresh the page.');
