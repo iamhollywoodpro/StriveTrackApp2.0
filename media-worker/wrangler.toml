@@ -8,5 +8,9 @@ r2_buckets = [
   { binding = "R2_BUCKET", bucket_name = "strivetrack-media" }
 ]
 
+d1_databases = [
+  { binding = "DB", database_name = "strivetrack_d1", database_id = "REPLACE_WITH_D1_ID" }
+]
+
 [vars]
 # These will be set via `wrangler secret put` in deployment
