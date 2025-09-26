@@ -14,6 +14,12 @@ export default defineConfig(({ mode }) => {
       minify: false,
       cssCodeSplit: true
     },
+    define: {
+      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
+      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(process.env.VITE_SUPABASE_ANON_KEY || ''),
+      'import.meta.env.VITE_API_BASE': JSON.stringify(process.env.VITE_API_BASE || ''),
+      'import.meta.env.VITE_MEDIA_API_BASE': JSON.stringify(process.env.VITE_MEDIA_API_BASE || ''),
+    },
     // Only enable the heavy tagger plugin in development to reduce build memory
     plugins: [tsconfigPaths(), react(), ...(isProd ? [] : [tagger()])],
     server: {
