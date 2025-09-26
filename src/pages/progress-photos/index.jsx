@@ -54,53 +54,8 @@ const ProgressPhotos = () => {
         mediaType: (m.contentType || '').startsWith('video/') ? 'video' : 'image',
         file_size: 0
       }));
-      const error = null;
 
-      if (error) {
-        setError('Failed to load photos. Please refresh the page.');
-        setPhotos([]);
-        return;
-      }
-
-      // Transform data with enhanced mapping including new fields
-      const transformedPhotos = await Promise.all(
-        (data || [])?.map(async (media) => {
-          try {
-            const { data: signedUrlData } = await supabase
-              ?.storage
-              ?.from('user-media')
-              ?.createSignedUrl(media?.file_path, 7200);
-
-            return {
-              id: media?.id,
-              imageUrl: signedUrlData?.signedUrl || '/assets/images/no_image.png',
-              type: media?.progress_type || 'progress',
-              privacy: media?.privacy_level || 'private',
-              notes: media?.description || media?.filename || 'Progress photo',
-              date: media?.uploaded_at,
-              points: 25,
-              filename: media?.filename,
-              mediaType: media?.media_type || 'image',
-              file_size: media?.file_size
-            };
-          } catch (urlError) {
-            return {
-              id: media?.id,
-              imageUrl: '/assets/images/no_image.png',
-              type: media?.progress_type || 'progress',
-              privacy: media?.privacy_level || 'private',
-              notes: media?.description || media?.filename || 'Progress photo',
-              date: media?.uploaded_at,
-              points: 25,
-              filename: media?.filename,
-              mediaType: media?.media_type || 'image',
-              file_size: media?.file_size
-            };
-          }
-        })
-      );
-
-      setPhotos(transformedPhotos);
+      setPhotos(data);
     } catch (error) {
       setError('Failed to load photos. Please refresh the page.');
       setPhotos([]);
@@ -211,16 +166,14 @@ const ProgressPhotos = () => {
   const handlePhotoDelete = async (photo) => {
     if (window.confirm('Are you sure you want to delete this photo?')) {
       try {
-        const { error } = await supabase
-          ?.from('media_files')
-          ?.update({ status: 'deleted' })
-          ?.eq('id', photo?.id)
-          ?.eq('user_id', user?.id);
-
-        if (error) {
-          setError('Failed to delete photo. Please try again.');
-          return;
-        }
+        const session = await supabase?.auth?.getSession();
+        const accessToken = session?.data?.session?.access_token;
+        const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+        const resp = await fetch(`${API_BASE}/media/${encodeURIComponent(photo?.id)}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (!resp.ok) throw new Error('Delete failed');
 
         // Remove from local state
         setPhotos(prev => prev?.filter(p => p?.id !== photo?.id));

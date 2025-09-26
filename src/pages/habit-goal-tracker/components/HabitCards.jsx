@@ -35,7 +35,7 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
       if (Array.isArray(res?.logs)) {
         res.logs.forEach((log) => {
           const hid = log?.habit_id || log?.habitId;
-          const date = log?.date || log?."date" || log?.logged_date || log?.completed_date;
+          const date = log?.date ?? log?.['date'] ?? log?.logged_date ?? log?.completed_date;
           if (hid && date && completionMap[hid]) completionMap[hid][date] = true;
         });
       } else if (Array.isArray(res?.items)) {
@@ -43,7 +43,7 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
           const hid = h?.id;
           const logs = h?.logs || h?.recent_logs || [];
           logs.forEach((lg) => {
-            const date = typeof lg === 'string' ? lg : (lg?.date || lg?."date" || lg?.logged_date || lg?.completed_date);
+            const date = typeof lg === 'string' ? lg : (lg?.date ?? lg?.['date'] ?? lg?.logged_date ?? lg?.completed_date);
             if (hid && date && completionMap[hid]) completionMap[hid][date] = true;
           });
         });

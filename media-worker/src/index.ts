@@ -57,7 +57,40 @@ app.post('/api/upload', async (c) => {
     return withCORS(new Response(JSON.stringify({ error: 'Empty body' }), { status: 400 }), origin)
 
   await c.env.R2_BUCKET.put(key, body)
+  // Try to record in D1 media table if available
+  try {
+    // Best-effort insert; table schema assumed: media(user_id TEXT, key TEXT, content_type TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)
+    const contentType = c.req.header('content-type') || 'application/octet-stream'
+    await c.env.DB
+      .prepare('INSERT INTO media (user_id, key, content_type) VALUES (?, ?, ?)')
+      .bind(user.id, key, contentType)
+      .run()
+  } catch (_) {}
   return withCORS(new Response(JSON.stringify({ key }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin)
+})
+
+// GET /api/media - list current user's media from D1
+app.get('/api/media', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  const auth = c.req.header('authorization') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const user = await verifySupabaseToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  try {
+    const rs = await c.env.DB
+      .prepare('SELECT key, content_type as contentType, created_at as createdAt FROM media WHERE user_id = ? ORDER BY created_at DESC')
+      .bind(user.id)
+      .all()
+    const items = (rs.results || []).map((m: any) => ({
+      key: m.key,
+      contentType: m.contentType,
+      createdAt: m.createdAt,
+      url: `${new URL(c.req.url).origin}/api/media/${encodeURIComponent(m.key)}`
+    }))
+    return jsonCORS(origin, { items })
+  } catch (e: any) {
+    return jsonCORS(origin, { items: [] }) // degrade gracefully if table missing
+  }
 })
 
 // GET /api/media/:key - streams file if owner or admin (admin by email match)

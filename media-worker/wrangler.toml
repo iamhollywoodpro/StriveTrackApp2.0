@@ -1,4 +1,4 @@
-name = "strivetrack-media-worker"
+name = "strivetrack-media-api"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 account_id = "42facf58740cfbdb2600673dd5ca4665"
