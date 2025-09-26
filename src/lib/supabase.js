@@ -1,8 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
+if (!supabaseUrl) {
+  console.error('Missing VITE_SUPABASE_URL at build-time.');
+}
+if (!supabaseAnonKey) {
+  console.error('Missing VITE_SUPABASE_ANON_KEY at build-time.');
+}
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper function to check if user is admin
