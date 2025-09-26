@@ -9,7 +9,7 @@ r2_buckets = [
 ]
 
 d1_databases = [
-  { binding = "DB", database_name = "strivetrack_d1", database_id = "REPLACE_WITH_D1_ID" }
+  { binding = "DB", database_name = "strivetrack_d1", database_id = "91997c2b-85e6-4fe0-9bb8-4ac1245f09fd" }
 ]
 
 [vars]
