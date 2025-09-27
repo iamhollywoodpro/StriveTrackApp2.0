@@ -1,14 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rftjybtdvfffzqgotdly.supabase.co' 
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmdGp5YnRkdmZmZnpxZ290ZGx5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgyMTQ0MTMsImV4cCI6MjA3Mzc5MDQxM30.x1jA2cWY8w_twtJ7-JaFvhAFvwrVtTGpQSsqaBBJx6c
 
-if (!supabaseUrl) {
-  console.error('Missing VITE_SUPABASE_URL at build-time.');
-}
-if (!supabaseAnonKey) {
-  console.error('Missing VITE_SUPABASE_ANON_KEY at build-time.');
-}
+
+if (!supabaseUrl) { console.error('Missing VITE_SUPABASE_URL at build-time.'); } 
+if (!supabaseAnonKey) { console.error('Missing VITE_SUPABASE_ANON_KEY at build-time.'); } 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper function to check if user is admin
