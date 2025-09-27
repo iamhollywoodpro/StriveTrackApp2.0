@@ -37,14 +37,14 @@ const ProgressPhotos = () => {
       setLoading(true);
       
       const res = await apiGet('/media', supabase);
-      if (!res || !Array.isArray(res.items)) {
-        setError('Failed to load photos. Please refresh the page.');
-        setPhotos([]);
-        return;
-      }
-      const data = res.items.map((m) => ({
+      const items = Array.isArray(res?.items) ? res.items : [];
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token || '';
+      const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+
+      const data = items.map((m) => ({
         id: m.key,
-        imageUrl: m.url,
+        imageUrl: `${API_BASE}/media/${encodeURIComponent(m.key)}${token ? `?token=${encodeURIComponent(token)}` : ''}`,
         type: 'progress',
         privacy: 'private',
         notes: m.key.split('/').pop(),
@@ -168,7 +168,7 @@ const ProgressPhotos = () => {
       try {
         const session = await supabase?.auth?.getSession();
         const accessToken = session?.data?.session?.access_token;
-        const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+        const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
         const resp = await fetch(`${API_BASE}/media/${encodeURIComponent(photo?.id)}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${accessToken}` }

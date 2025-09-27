@@ -131,7 +131,7 @@ const HabitGoalTracker = () => {
       await apiSend('POST', '/goals', {
         title: newGoal?.title?.trim(),
         description: newGoal?.description?.trim() || null,
-        target_date: newGoal?.target_date || null
+        target_date: newGoal?.deadline ? new Date(newGoal.deadline).toISOString().slice(0,10) : null
       }, supabase);
 
       // Success - refresh goals list and close modal

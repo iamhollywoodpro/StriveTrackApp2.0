@@ -10,6 +10,8 @@ import QuickActions from './components/QuickActions';
 import AchievementsBadges from './components/AchievementsBadges';
 import GoalDeadlines from './components/GoalDeadlines';
 
+import { apiGet } from '../../lib/api';
+
 const Dashboard = () => {
   const { user, userProfile } = useAuth();
   
@@ -40,70 +42,45 @@ const Dashboard = () => {
     try {
       setLoading(true);
 
-      // Get user points and profile info - should work now with fixed RLS policies
-      const { data: profileData, error: profileError } = await supabase
-        ?.from('profiles')
-        ?.select('points, name, email')
-        ?.eq('id', user?.id)
-        ?.single();
+      // 1) Points via Worker achievements endpoint
+      const achRes = await apiGet('/achievements', supabase);
+      const totalPoints = achRes?.total_points || 0;
+      const currentLevel = Math.floor(totalPoints / 100) + 1;
+      const currentLevelPoints = totalPoints % 100;
+      const nextLevelPoints = 100;
+      setUserStats({
+        userLevel: currentLevel,
+        totalPoints,
+        nextLevelPoints,
+        currentLevelPoints
+      });
 
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-        // Set default values on profile error
-        setUserStats({
-          userLevel: 1,
-          totalPoints: 0,
-          nextLevelPoints: 100,
-          currentLevelPoints: 0
-        });
-      } else {
-        // Calculate user level based on points (100 points per level)
-        const totalPoints = profileData?.points || 0;
-        const currentLevel = Math.floor(totalPoints / 100) + 1;
-        const currentLevelPoints = totalPoints % 100;
-        const nextLevelPoints = 100;
+      // 2) Counts and streaks via Worker
+      const today = new Date();
+      const to = today.toISOString().split('T')[0];
+      const from = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-        setUserStats({
-          userLevel: currentLevel,
-          totalPoints,
-          nextLevelPoints,
-          currentLevelPoints
-        });
-      }
-
-      // Get enhanced statistics using new functions
-      const [goalsResult, habitsResult, mediaResult] = await Promise.allSettled([
-        supabase?.from('goals')?.select('id, progress')?.eq('user_id', user?.id),
-        supabase?.from('habits')?.select('id')?.eq('user_id', user?.id),
-        supabase?.from('media_files')?.select('id')?.eq('user_id', user?.id)?.eq('status', 'active')
+      const [goalsResult, habitsResult, mediaResult, habitsWithLogsResult] = await Promise.allSettled([
+        apiGet('/goals', supabase),
+        apiGet('/habits', supabase),
+        apiGet('/media', supabase),
+        apiGet(`/habits?from=${from}&to=${to}`, supabase)
       ]);
 
-      const goalsData = goalsResult?.status === 'fulfilled' ? goalsResult?.value?.data || [] : [];
-      const habitsData = habitsResult?.status === 'fulfilled' ? habitsResult?.value?.data || [] : [];
-      const mediaData = mediaResult?.status === 'fulfilled' ? mediaResult?.value?.data || [] : [];
+      const goalsData = goalsResult.status === 'fulfilled' ? (goalsResult.value?.items ?? goalsResult.value ?? []) : [];
+      const habitsData = habitsResult.status === 'fulfilled' ? (habitsResult.value?.items ?? habitsResult.value ?? []) : [];
+      const mediaData = mediaResult.status === 'fulfilled' ? (mediaResult.value?.items ?? mediaResult.value ?? []) : [];
+      const logsData = habitsWithLogsResult.status === 'fulfilled' ? (habitsWithLogsResult.value?.logs ?? []) : [];
 
-      // Calculate habit completion streak (simplified)
-      const { data: recentCompletions } = await supabase
-        ?.from('habit_completions')
-        ?.select('completed_date')
-        ?.eq('user_id', user?.id)
-        ?.gte('completed_date', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)?.toISOString()?.split('T')?.[0])
-        ?.order('completed_date', { ascending: false });
-
-      // Calculate unique days with completions for streak
-      const uniqueDays = new Set(
-        recentCompletions?.map(completion => completion?.completed_date) || []
-      );
-
-      // Calculate completed goals
-      const completedGoals = goalsData?.filter(goal => goal?.progress >= 100)?.length || 0;
+      const uniqueDays = new Set((logsData || []).map(l => l?.date));
+      const completedGoals = goalsData.filter(g => (g?.progress || 0) >= 100).length;
 
       setDashboardStats({
-        currentStreak: uniqueDays?.size || 0,
-        totalWorkouts: habitsData?.length || 0,
-        photosUploaded: mediaData?.length || 0,
-        activeGoals: goalsData?.length || 0,
-        completedGoals: completedGoals
+        currentStreak: uniqueDays.size || 0,
+        totalWorkouts: habitsData.length || 0,
+        photosUploaded: mediaData.length || 0,
+        activeGoals: goalsData.length || 0,
+        completedGoals
       });
 
     } catch (error) {
@@ -132,42 +109,19 @@ const Dashboard = () => {
     if (!user?.id) return;
 
     try {
-      // Fixed query that should work with the new RLS policies
-      const { data, error } = await supabase
-        ?.from('user_achievements')
-        ?.select(`
-          id,
-          earned_at,
-          achievements (
-            id,
-            name,
-            description,
-            icon,
-            points
-          )
-        `)
-        ?.eq('user_id', user?.id)
-        ?.order('earned_at', { ascending: false })
-        ?.limit(5);
-
-      if (error) {
-        console.error('Error fetching achievements:', error);
-        setUserAchievements([]);
-        return;
-      }
-
-      const formattedAchievements = data?.map(item => ({
-        id: item?.id,
-        title: item?.achievements?.name || 'Achievement',
-        description: item?.achievements?.description || '',
+      const res = await apiGet('/achievements', supabase);
+      const items = res?.items || [];
+      const formatted = items.map(a => ({
+        id: a?.id,
+        title: a?.name || a?.code || 'Achievement',
+        description: a?.description || a?.code || '',
         category: 'achievement',
-        rarity: item?.achievements?.points > 15 ? 'rare' : 'common',
-        points: item?.achievements?.points || 0,
-        earnedAt: new Date(item?.earned_at),
-        icon: item?.achievements?.icon || '🏆'
-      })) || [];
-
-      setUserAchievements(formattedAchievements);
+        rarity: (a?.points || 0) > 15 ? 'rare' : 'common',
+        points: a?.points || 0,
+        earnedAt: a?.created_at ? new Date(a.created_at) : new Date(),
+        icon: '🏆'
+      }));
+      setUserAchievements(formatted);
     } catch (error) {
       console.error('Error fetching user achievements:', error);
       setUserAchievements([]);
@@ -179,23 +133,11 @@ const Dashboard = () => {
     if (!user?.id) return;
 
     try {
-      const { data, error } = await supabase
-        ?.from('goals')
-        ?.select('*')
-        ?.eq('user_id', user?.id)
-        ?.order('created_at', { ascending: false })
-        ?.limit(4);
-
-      if (error) {
-        console.error('Error fetching goals:', error);
-        setUserGoals([]);
-        return;
-      }
-
-      const formattedGoals = data?.map(goal => {
+      const res = await apiGet('/goals', supabase);
+      const data = res?.items ?? res ?? [];
+      const formattedGoals = data.map(goal => {
         const targetDate = goal?.target_date ? new Date(goal.target_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         const daysRemaining = Math.ceil((targetDate - new Date()) / (1000 * 60 * 60 * 24));
-        
         return {
           id: goal?.id,
           title: goal?.title || 'Untitled Goal',
@@ -208,8 +150,7 @@ const Dashboard = () => {
           isOverdue: daysRemaining < 0,
           isCompleted: (goal?.progress || 0) >= 100
         };
-      }) || [];
-
+      });
       setUserGoals(formattedGoals);
     } catch (error) {
       console.error('Error fetching user goals:', error);
@@ -224,74 +165,53 @@ const Dashboard = () => {
     try {
       const activities = [];
 
-      // Get recent media uploads
-      const { data: mediaData } = await supabase
-        ?.from('media_files')
-        ?.select('*')
-        ?.eq('user_id', user?.id)
-        ?.eq('status', 'active')
-        ?.order('uploaded_at', { ascending: false })
-        ?.limit(2);
-
-      mediaData?.forEach(media => {
-        activities?.push({
-          id: `media_${media?.id}`,
+      // Media uploads via Worker
+      const mediaRes = await apiGet('/media', supabase);
+      (mediaRes?.items || []).slice(0, 2).forEach((m, idx) => {
+        activities.push({
+          id: `media_${idx}_${m.key}`,
           type: 'photo',
-          title: 'Progress Photo Uploaded',
-          description: `Added new ${media?.media_type} to your progress collection`,
-          timestamp: new Date(media?.uploaded_at),
+          title: 'Progress Media Uploaded',
+          description: `Added new ${m?.contentType?.startsWith('video/') ? 'video' : 'photo'} to your collection`,
+          timestamp: m?.createdAt ? new Date(m.createdAt) : new Date(),
           engagement: { likes: 0, comments: 0 }
         });
       });
 
-      // Get recent goals
-      const { data: goalsData } = await supabase
-        ?.from('goals')
-        ?.select('*')
-        ?.eq('user_id', user?.id)
-        ?.order('created_at', { ascending: false })
-        ?.limit(2);
-
-      goalsData?.forEach(goal => {
-        activities?.push({
-          id: `goal_${goal?.id}`,
+      // Recent goals via Worker
+      const goalsRes = await apiGet('/goals', supabase);
+      (goalsRes?.items || []).slice(0, 2).forEach(g => {
+        activities.push({
+          id: `goal_${g?.id}`,
           type: 'goal',
           title: 'New Goal Created',
-          description: goal?.title || 'Goal created',
-          timestamp: new Date(goal?.created_at),
+          description: g?.title || 'Goal created',
+          timestamp: g?.created_at ? new Date(g.created_at) : new Date(),
           engagement: { likes: 0, comments: 0 }
         });
       });
 
-      // Get recent habit completions
-      const { data: completionsData } = await supabase
-        ?.from('habit_completions')
-        ?.select(`
-          *,
-          habits (
-            name,
-            emoji
-          )
-        `)
-        ?.eq('user_id', user?.id)
-        ?.order('completed_at', { ascending: false })
-        ?.limit(2);
-
-      completionsData?.forEach(completion => {
-        activities?.push({
-          id: `completion_${completion?.id}`,
+      // Recent habit logs via Worker (last 2)
+      const today = new Date();
+      const to = today.toISOString().split('T')[0];
+      const from = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      const habitsWithLogs = await apiGet(`/habits?from=${from}&to=${to}`, supabase);
+      const habitsMap = new Map();
+      (habitsWithLogs?.items || []).forEach(h => habitsMap.set(h.id, h));
+      (habitsWithLogs?.logs || []).slice(0, 2).forEach((log, idx) => {
+        const h = habitsMap.get(log.habit_id);
+        activities.push({
+          id: `completion_${idx}_${log.habit_id}_${log.date}`,
           type: 'habit',
           title: 'Habit Completed',
-          description: `${completion?.habits?.emoji || '✅'} ${completion?.habits?.name || 'Unknown habit'}`,
-          timestamp: new Date(completion?.completed_at),
+          description: `${h?.emoji || '✅'} ${h?.name || 'Habit'} on ${log.date}`,
+          timestamp: new Date(log.date),
           engagement: { likes: 0, comments: 0 }
         });
       });
 
-      // Sort all activities by timestamp and take the most recent 5
-      activities?.sort((a, b) => new Date(b?.timestamp) - new Date(a?.timestamp));
-
-      setRecentActivity(activities?.slice(0, 5) || []);
+      activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+      setRecentActivity(activities.slice(0, 5));
     } catch (error) {
       console.error('Error fetching recent activity:', error);
       setRecentActivity([]);

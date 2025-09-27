@@ -44,7 +44,9 @@ async function verifySupabaseToken(env: Bindings, token: string) {
 app.post('/api/upload', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin)
 
@@ -73,7 +75,9 @@ app.post('/api/upload', async (c) => {
 app.get('/api/media', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
   try {
@@ -85,7 +89,7 @@ app.get('/api/media', async (c) => {
       key: m.key,
       contentType: m.contentType,
       createdAt: m.createdAt,
-      url: `${new URL(c.req.url).origin}/api/media/${encodeURIComponent(m.key)}`
+      url: `${new URL(c.req.url).origin}/api/media/${encodeURIComponent(m.key)}?token=${encodeURIComponent(token)}`
     }))
     return jsonCORS(origin, { items })
   } catch (e: any) {
@@ -98,7 +102,9 @@ app.get('/api/media/*', async (c) => {
   const origin = c.req.header('origin') || '*'
   const objectKey = c.req.param('*')
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin)
 
@@ -119,7 +125,9 @@ app.delete('/api/media/*', async (c) => {
   const origin = c.req.header('origin') || '*'
   const objectKey = c.req.param('*')
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin)
 
@@ -148,7 +156,9 @@ app.get('/api/health', (c) => {
 app.get('/api/goals', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
 
@@ -166,7 +176,9 @@ app.get('/api/goals', async (c) => {
 app.post('/api/goals', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
 
@@ -189,7 +201,9 @@ app.post('/api/goals', async (c) => {
 app.delete('/api/goals/:id', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
   const id = Number(c.req.param('id'))
@@ -206,10 +220,11 @@ app.delete('/api/goals/:id', async (c) => {
 app.get('/api/habits', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
-  const url = new URL(c.req.url)
   const from = url.searchParams.get('from')
   const to = url.searchParams.get('to')
   try {
@@ -234,7 +249,9 @@ app.get('/api/habits', async (c) => {
 app.post('/api/habits', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
 
@@ -259,7 +276,9 @@ app.post('/api/habits', async (c) => {
 app.post('/api/habits/:id/log', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
   const habitId = Number(c.req.param('id'))
@@ -291,7 +310,9 @@ app.post('/api/habits/:id/log', async (c) => {
 app.delete('/api/habits/:id', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
   const habitId = Number(c.req.param('id'))
@@ -309,10 +330,11 @@ app.delete('/api/habits/:id', async (c) => {
 app.get('/api/nutrition', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
-  const url = new URL(c.req.url)
   const date = (url.searchParams.get('date') || '').slice(0, 10)
   if (!date) return jsonCORS(origin, { error: 'date required (YYYY-MM-DD)' }, 400)
   try {
@@ -329,7 +351,9 @@ app.get('/api/nutrition', async (c) => {
 app.post('/api/nutrition', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
 
@@ -356,7 +380,9 @@ app.post('/api/nutrition', async (c) => {
 app.delete('/api/nutrition/:id', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
   const id = Number(c.req.param('id'))
@@ -373,7 +399,9 @@ app.delete('/api/nutrition/:id', async (c) => {
 app.get('/api/achievements', async (c) => {
   const origin = c.req.header('origin') || '*'
   const auth = c.req.header('authorization') || ''
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
   if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
   try {
