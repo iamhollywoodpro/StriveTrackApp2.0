@@ -76,6 +76,20 @@ app.post('/api/upload', async (c) => {
       .prepare('INSERT INTO media (user_id, key, content_type) VALUES (?, ?, ?)')
       .bind(user.id, key, contentType)
       .run()
+    // First upload achievement (+25) once
+    try {
+      const ach = await c.env.DB
+        .prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
+        .bind(user.id, 'first_upload', 25)
+        .run()
+      // @ts-ignore
+      if (ach?.meta?.changes > 0) {
+        await c.env.DB
+          .prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
+          .bind(user.id, 25, 'first_upload')
+          .run()
+      }
+    } catch (_) {}
   } catch (_) {}
   return withCORS(new Response(JSON.stringify({ key }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin, c.req.raw)
 })
