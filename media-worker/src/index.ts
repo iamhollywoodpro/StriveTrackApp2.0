@@ -85,15 +85,36 @@ app.get('/api/media', async (c) => {
       .prepare('SELECT key, content_type as contentType, created_at as createdAt FROM media WHERE user_id = ? ORDER BY created_at DESC')
       .bind(user.id)
       .all()
-    const items = (rs.results || []).map((m: any) => ({
+    const itemsDb = (rs.results || []).map((m: any) => ({
       key: m.key,
       contentType: m.contentType,
       createdAt: m.createdAt,
       url: `${new URL(c.req.url).origin}/api/media/${encodeURIComponent(m.key)}?token=${encodeURIComponent(token)}`
     }))
-    return jsonCORS(origin, { items })
+    if (itemsDb.length > 0) return jsonCORS(origin, { items: itemsDb })
+    // Fallback: list from R2 if DB is empty or not yet seeded
+    const list = await c.env.R2_BUCKET.list({ prefix: `${user.id}/`, limit: 1000 })
+    const itemsR2 = (list.objects || []).map((o: any) => ({
+      key: o.key,
+      contentType: undefined,
+      createdAt: (o.uploaded ? new Date(o.uploaded).toISOString() : undefined),
+      url: `${new URL(c.req.url).origin}/api/media/${encodeURIComponent(o.key)}?token=${encodeURIComponent(token)}`
+    }))
+    return jsonCORS(origin, { items: itemsR2 })
   } catch (e: any) {
-    return jsonCORS(origin, { items: [] }) // degrade gracefully if table missing
+    // On error: still attempt R2 list as a last resort
+    try {
+      const list = await c.env.R2_BUCKET.list({ prefix: `${user.id}/`, limit: 1000 })
+      const itemsR2 = (list.objects || []).map((o: any) => ({
+        key: o.key,
+        contentType: undefined,
+        createdAt: (o.uploaded ? new Date(o.uploaded).toISOString() : undefined),
+        url: `${new URL(c.req.url).origin}/api/media/${encodeURIComponent(o.key)}?token=${encodeURIComponent(token)}`
+      }))
+      return jsonCORS(origin, { items: itemsR2 })
+    } catch (_) {
+      return jsonCORS(origin, { items: [] }) // degrade gracefully if table missing
+    }
   }
 })
 

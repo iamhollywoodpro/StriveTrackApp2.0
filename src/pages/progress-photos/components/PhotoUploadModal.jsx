@@ -110,7 +110,7 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       // Step 3: Worker already writes a media row into D1.
       // Build a proxied view URL from Worker (no signed URL needed)
       const API_BASE_2 = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
-      const r2ViewUrl = `${API_BASE_2}/media/${encodeURIComponent(key)}`;
+      const r2ViewUrl = `${API_BASE_2}/media/${encodeURIComponent(key)}?token=${encodeURIComponent(accessToken)}`;
 
       // Step 4: Notify parent with minimal card data; caller will refresh list from /api/media
       const newPhoto = {
