@@ -58,11 +58,11 @@ app.post('/api/upload', async (c) => {
   if (!body || body.byteLength === 0)
     return withCORS(new Response(JSON.stringify({ error: 'Empty body' }), { status: 400 }), origin)
 
-  await c.env.R2_BUCKET.put(key, body)
+  const contentType = c.req.header('content-type') || 'application/octet-stream'
+  await c.env.R2_BUCKET.put(key, body, { httpMetadata: { contentType } })
   // Try to record in D1 media table if available
   try {
     // Best-effort insert; table schema assumed: media(user_id TEXT, key TEXT, content_type TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)
-    const contentType = c.req.header('content-type') || 'application/octet-stream'
     await c.env.DB
       .prepare('INSERT INTO media (user_id, key, content_type) VALUES (?, ?, ?)')
       .bind(user.id, key, contentType)
@@ -121,7 +121,8 @@ app.get('/api/media', async (c) => {
 // GET /api/media/:key - streams file if owner or admin (admin by email match)
 app.get('/api/media/*', async (c) => {
   const origin = c.req.header('origin') || '*'
-  const objectKey = c.req.param('*')
+  let objectKey = c.req.param('*')
+  try { objectKey = decodeURIComponent(objectKey) } catch (_) {}
   const auth = c.req.header('authorization') || ''
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
@@ -144,7 +145,8 @@ app.get('/api/media/*', async (c) => {
 // DELETE /api/media/:key - owner or admin
 app.delete('/api/media/*', async (c) => {
   const origin = c.req.header('origin') || '*'
-  const objectKey = c.req.param('*')
+  let objectKey = c.req.param('*')
+  try { objectKey = decodeURIComponent(objectKey) } catch (_) {}
   const auth = c.req.header('authorization') || ''
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
@@ -158,6 +160,10 @@ app.delete('/api/media/*', async (c) => {
   if (!(isOwnerPath || isAdmin)) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin)
 
   await c.env.R2_BUCKET.delete(objectKey)
+  // Best-effort: remove index row
+  try {
+    await c.env.DB.prepare('DELETE FROM media WHERE user_id = ? AND key = ?').bind(user.id, objectKey).run()
+  } catch (_) {}
   return withCORS(new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin)
 })
 

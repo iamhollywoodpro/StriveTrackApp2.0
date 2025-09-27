@@ -55,7 +55,7 @@ const PhotoGallery = ({
           onEdit={onPhotoEdit}
           onShare={onPhotoShare}
           onDelete={onPhotoDelete}
-          onCompare={() => {}}
+          onCompare={() => onPhotoSelect(photo?.id)}
         />
       ))}
     </div>
