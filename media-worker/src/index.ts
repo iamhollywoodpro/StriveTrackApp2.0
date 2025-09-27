@@ -10,19 +10,28 @@ export type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>()
 
-// CORS middleware
-const withCORS = (resp: Response, origin: string) => {
+// CORS middleware (echo requested headers to avoid preflight mismatches)
+const withCORS = (resp: Response, origin: string, req?: Request) => {
   const headers = new Headers(resp.headers)
   headers.set('Access-Control-Allow-Origin', origin)
-  headers.set('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS')
-  headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, x-file-name')
+  headers.set('Vary', 'Origin')
+  headers.set('Access-Control-Allow-Methods', 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS')
+  const reqHeaders = req?.headers?.get('access-control-request-headers')
+  headers.set('Access-Control-Allow-Headers', reqHeaders || 'authorization, content-type, x-file-name')
   headers.set('Access-Control-Max-Age', '86400')
   return new Response(resp.body, { status: resp.status, headers })
 }
 
 app.options('*', (c) => {
   const origin = c.req.header('origin') || '*'
-  return withCORS(new Response(null, { status: 204 }), origin)
+  return withCORS(new Response(null, { status: 204 }), origin, c.req.raw)
+})
+
+// Root info route (avoid confusing 404 at /)
+app.get('/', (c) => {
+  const origin = c.req.header('origin') || '*'
+  const body = 'StriveTrack Media API is running. Try /api/health'
+  return withCORS(new Response(body, { status: 200 }), origin, c.req.raw)
 })
 
 // Utility: verify Supabase access token by calling /auth/v1/user
@@ -48,7 +57,7 @@ app.post('/api/upload', async (c) => {
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
-  if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin)
+  if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
 
   const headerName = c.req.header('x-file-name') || 'upload.bin'
   const sanitized = headerName.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -68,7 +77,7 @@ app.post('/api/upload', async (c) => {
       .bind(user.id, key, contentType)
       .run()
   } catch (_) {}
-  return withCORS(new Response(JSON.stringify({ key }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin)
+  return withCORS(new Response(JSON.stringify({ key }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin, c.req.raw)
 })
 
 // GET /api/media - list current user's media from D1
@@ -128,18 +137,29 @@ app.get('/api/media/*', async (c) => {
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
-  if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin)
+  if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
 
   const isAdmin = user.email === 'iamhollywoodpro@protonmail.com'
   const ownerPrefix = `${user.id}/`
   const isOwnerPath = objectKey.startsWith(ownerPrefix)
-  if (!(isOwnerPath || isAdmin)) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin)
+  // Ownership guard with D1 fallback check
+  let allowed = isOwnerPath || isAdmin
+  if (!allowed) {
+    try {
+      const row = await c.env.DB
+        .prepare('SELECT 1 as ok FROM media WHERE user_id = ? AND key = ? LIMIT 1')
+        .bind(user.id, objectKey)
+        .first<any>()
+      if (row?.ok === 1) allowed = true
+    } catch (_) {}
+  }
+  if (!allowed) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin)
 
   const obj = await c.env.R2_BUCKET.get(objectKey)
   if (!obj) return withCORS(new Response(JSON.stringify({ error: 'Not found' }), { status: 404 }), origin)
   const headers = new Headers({ 'Content-Type': obj.httpMetadata?.contentType || 'application/octet-stream' })
   headers.set('Access-Control-Allow-Origin', origin)
-  return new Response(obj.body, { headers })
+  return withCORS(new Response(obj.body, { headers }), origin, c.req.raw)
 })
 
 // DELETE /api/media/:key - owner or admin
@@ -152,19 +172,30 @@ app.delete('/api/media/*', async (c) => {
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
   const user = await verifySupabaseToken(c.env, token)
-  if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin)
+  if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
 
   const isAdmin = user.email === 'iamhollywoodpro@protonmail.com'
   const ownerPrefix = `${user.id}/`
   const isOwnerPath = objectKey.startsWith(ownerPrefix)
-  if (!(isOwnerPath || isAdmin)) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin)
+  // Ownership guard with D1 fallback check
+  let allowed = isOwnerPath || isAdmin
+  if (!allowed) {
+    try {
+      const row = await c.env.DB
+        .prepare('SELECT 1 as ok FROM media WHERE user_id = ? AND key = ? LIMIT 1')
+        .bind(user.id, objectKey)
+        .first<any>()
+      if (row?.ok === 1) allowed = true
+    } catch (_) {}
+  }
+  if (!allowed) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin)
 
   await c.env.R2_BUCKET.delete(objectKey)
   // Best-effort: remove index row
   try {
     await c.env.DB.prepare('DELETE FROM media WHERE user_id = ? AND key = ?').bind(user.id, objectKey).run()
   } catch (_) {}
-  return withCORS(new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin)
+  return withCORS(new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin, c.req.raw)
 })
 
 // Small JSON helper with CORS
@@ -221,6 +252,20 @@ app.post('/api/goals', async (c) => {
       .run()
     return jsonCORS(origin, { success: true })
   } catch (e: any) {
+    const msg = (e?.message || '').toLowerCase()
+    // Self-heal: add missing target_date column then retry once
+    if (msg.includes('no column named target_date') || msg.includes('no such column: target_date')) {
+      try {
+        await c.env.DB.prepare('ALTER TABLE goals ADD COLUMN target_date TEXT').run()
+        await c.env.DB
+          .prepare('INSERT INTO goals (user_id, title, description, target_date, progress) VALUES (?, ?, ?, ?, 0)')
+          .bind(user.id, title, description, target_date)
+          .run()
+        return jsonCORS(origin, { success: true })
+      } catch (e2: any) {
+        return jsonCORS(origin, { error: e2?.message || 'DB error' }, 500)
+      }
+    }
     return jsonCORS(origin, { error: e?.message || 'DB error' }, 500)
   }
 })
@@ -327,6 +372,20 @@ app.post('/api/habits/:id/log', async (c) => {
         .prepare('INSERT INTO habit_logs (habit_id, user_id, "date") VALUES (?, ?, ?)')
         .bind(habitId, user.id, date)
         .run()
+      // Award first habit log achievement
+      try {
+        const ach = await c.env.DB
+          .prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
+          .bind(user.id, 'first_habit_log', 10)
+          .run()
+        // @ts-ignore
+        if (ach?.meta?.changes > 0) {
+          await c.env.DB
+            .prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
+            .bind(user.id, 10, 'first_habit_log')
+            .run()
+        }
+      } catch (_) {}
       return jsonCORS(origin, { success: true, removed: false })
     }
   } catch (e: any) {
@@ -398,6 +457,20 @@ app.post('/api/nutrition', async (c) => {
       .prepare('INSERT INTO nutrition_logs (user_id, meal_name, meal_type, calories, protein, carbs, fat, "date") VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(user.id, meal_name, meal_type, calories, protein, carbs, fat, date)
       .run()
+    // Award first nutrition entry achievement
+    try {
+      const ach = await c.env.DB
+        .prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
+        .bind(user.id, 'first_nutrition_entry', 10)
+        .run()
+      // @ts-ignore
+      if (ach?.meta?.changes > 0) {
+        await c.env.DB
+          .prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
+          .bind(user.id, 10, 'first_nutrition_entry')
+          .run()
+      }
+    } catch (_) {}
     return jsonCORS(origin, { success: true })
   } catch (e: any) {
     return jsonCORS(origin, { error: e?.message || 'DB error' }, 500)
