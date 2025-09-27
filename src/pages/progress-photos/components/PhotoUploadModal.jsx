@@ -85,8 +85,7 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       const accessToken = session?.data?.session?.access_token;
       if (!accessToken) throw new Error('Missing auth token');
 
-      const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
-      if (!API_BASE) throw new Error('Media API is not configured');
+      const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 
       const r2UploadResp = await fetch(`${API_BASE}/upload`, {
         method: 'POST',
