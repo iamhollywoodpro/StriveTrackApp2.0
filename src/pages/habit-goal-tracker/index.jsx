@@ -97,7 +97,8 @@ const HabitGoalTracker = () => {
       setError('');
     } catch (error) {
       console.error('Error creating habit:', error);
-      setError('Failed to create habit. Please try again.');
+      const msg = error?.message || (error?.response?.error) || 'Failed to create habit. Please try again.';
+      setError(msg);
     }
   };
 
@@ -116,7 +117,8 @@ const HabitGoalTracker = () => {
       await fetchHabits();
     } catch (error) {
       console.error('Error toggling habit:', error);
-      setError('Failed to update habit');
+      const msg = error?.message || (error?.response?.error) || 'Failed to update habit';
+      setError(msg);
     }
   };
 
@@ -140,7 +142,8 @@ const HabitGoalTracker = () => {
       setError('');
     } catch (error) {
       console.error('Error creating goal:', error);
-      setError('Failed to create goal. Please try again.');
+      const msg = error?.message || (error?.response?.error) || 'Failed to create goal. Please try again.';
+      setError(msg);
     }
   };
 
@@ -154,7 +157,8 @@ const HabitGoalTracker = () => {
       await fetchHabits();
     } catch (error) {
       console.error('Error deleting habit:', error);
-      setError('Failed to delete habit');
+      const msg = error?.message || (error?.response?.error) || 'Failed to delete habit';
+      setError(msg);
     }
   };
 
@@ -168,7 +172,8 @@ const HabitGoalTracker = () => {
       await fetchGoals();
     } catch (error) {
       console.error('Error deleting goal:', error);
-      setError('Failed to delete goal');
+      const msg = error?.message || (error?.response?.error) || 'Failed to delete goal';
+      setError(msg);
     }
   };
 

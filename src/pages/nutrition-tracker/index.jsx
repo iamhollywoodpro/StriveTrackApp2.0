@@ -124,6 +124,7 @@ const NutritionTracker = () => {
       fetchNutritionData();
     } catch (error) {
       console.error('Error adding food:', error);
+      alert(error?.message || (error?.response?.error) || 'Failed to add food');
     }
   };
 
@@ -143,6 +144,7 @@ const NutritionTracker = () => {
       }));
     } catch (error) {
       console.error('Error removing food:', error);
+      alert(error?.message || (error?.response?.error) || 'Failed to remove food');
     }
   };
 
