@@ -241,6 +241,19 @@ app.get('/api/goals', async (c) => {
       .all()
     return jsonCORS(origin, { items: rs.results || [] })
   } catch (e: any) {
+    const msg = (e?.message || '').toLowerCase()
+    if (msg.includes('no such column: target_date')) {
+      try {
+        await c.env.DB.prepare('ALTER TABLE goals ADD COLUMN target_date TEXT').run()
+        const rs2 = await c.env.DB
+          .prepare('SELECT id, title, description, target_date, progress, created_at FROM goals WHERE user_id = ? ORDER BY created_at DESC')
+          .bind(user.id)
+          .all()
+        return jsonCORS(origin, { items: rs2.results || [] })
+      } catch (e2: any) {
+        return jsonCORS(origin, { error: e2?.message || 'DB error' }, 500)
+      }
+    }
     return jsonCORS(origin, { error: e?.message || 'DB error' }, 500)
   }
 })
