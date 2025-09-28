@@ -224,6 +224,13 @@ app.get('/api/media', async (c) => {
       url: `${new URL(c.req.url).origin}/api/media/${encodeURIComponent(o.key)}?token=${encodeURIComponent(token)}`
     }
   })
+  // Best-effort backfill to D1 so future deletes/streams pass ownership checks
+  try {
+    for (const it of itemsR2) {
+      await c.env.DB.prepare('INSERT OR IGNORE INTO media (user_id, key, content_type) VALUES (?, ?, ?)')
+        .bind(user.id, it.key, it.contentType || null).run()
+    }
+  } catch (_) {}
   return jsonCORS(origin, { items: itemsR2 })
 })
 
