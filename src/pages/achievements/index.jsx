@@ -8,15 +8,26 @@ import CategoryFilter from './components/CategoryFilter';
 import StatsPanel from './components/StatsPanel';
 import FeaturedAchievements from './components/FeaturedAchievements';
 import HistoricalTimeline from './components/HistoricalTimeline';
+import { 
+  getAllAchievements, 
+  getAchievementsByCategory, 
+  ACHIEVEMENT_CATEGORIES,
+  getRarityColor,
+  getRarityTextColor 
+} from '../../data/achievementDatabase';
 
 const Achievements = () => {
   const { user } = useAuth();
   
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedType, setSelectedType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [achievementsData, setAchievementsData] = useState([]);
   const [userAchievements, setUserAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Get all 50 achievements from our comprehensive database
+  const ALL_ACHIEVEMENTS = getAllAchievements();
 
   // Fetch achievements from database
   const fetchAchievements = async () => {
@@ -27,29 +38,58 @@ const Achievements = () => {
 
       const res = await apiGet('/achievements', supabase);
       const items = res?.items ?? [];
-      const total_points = res?.total_points ?? 0;
 
-      // Map Worker response to UI shape
-      const transformedAchievements = items.map((a) => ({
-        id: a?.id || a?.code,
-        title: a?.name || a?.code,
-        description: a?.description || a?.code,
-        category: a?.category || (a?.points > 100 ? 'progress' : a?.points > 50 ? 'consistency' : 'special'),
-        rarity: a?.points > 200 ? 'legendary' : a?.points > 100 ? 'epic' : a?.points > 50 ? 'rare' : 'common',
-        points: a?.points || 0,
-        earnedAt: a?.created_at ? new Date(a?.created_at) : null,
-        isEarned: !!a,
-        unlockCriteria: a?.description || a?.code,
-        progress: 100,
-        artwork: a?.icon || '🏆'
-      }));
+      // Create map of earned achievements by ID
+      const earnedByCode = new Map(items.map(a => [a.code, a]));
 
-      setAchievementsData(transformedAchievements);
+      // Transform all 50 achievements with earned status
+      const transformed = ALL_ACHIEVEMENTS.map(def => {
+        const earned = earnedByCode.get(def.id);
+        return {
+          id: def.id,
+          code: def.id,
+          title: def.name,
+          description: def.description,
+          category: def.category,
+          type: def.type,
+          rarity: def.rarity,
+          points: def.points,
+          icon: def.icon,
+          earnedAt: earned?.created_at ? new Date(earned.created_at) : null,
+          isEarned: !!earned,
+          unlockCriteria: def.description,
+          progress: earned ? 100 : 0,
+          resetDaily: def.resetDaily || false,
+          resetWeekly: def.resetWeekly || false,
+          condition: def.condition
+        };
+      });
+
+      setAchievementsData(transformed);
       setUserAchievements(items);
 
     } catch (error) {
       console.error('Error fetching achievements:', error);
-      setAchievementsData([]);
+      // Show all achievements even if API fails
+      const fallbackAchievements = ALL_ACHIEVEMENTS.map(def => ({
+        id: def.id,
+        code: def.id,
+        title: def.name,
+        description: def.description,
+        category: def.category,
+        type: def.type,
+        rarity: def.rarity,
+        points: def.points,
+        icon: def.icon,
+        earnedAt: null,
+        isEarned: false,
+        unlockCriteria: def.description,
+        progress: 0,
+        resetDaily: def.resetDaily || false,
+        resetWeekly: def.resetWeekly || false,
+        condition: def.condition
+      }));
+      setAchievementsData(fallbackAchievements);
     } finally {
       setLoading(false);
     }
@@ -81,13 +121,15 @@ const Achievements = () => {
     seasonal: achievementsData?.filter(a => a?.category === 'special')?.slice(0, 2) || []
   };
 
-  const categories = ['all', 'consistency', 'progress', 'social', 'special'];
+  const categories = ['all', ...Object.keys(ACHIEVEMENT_CATEGORIES)];
+  const types = ['all', 'daily', 'weekly', 'general'];
 
   const filteredAchievements = achievementsData?.filter(achievement => {
     const matchesCategory = selectedCategory === 'all' || achievement?.category === selectedCategory;
+    const matchesType = selectedType === 'all' || achievement?.type === selectedType;
     const matchesSearch = achievement?.title?.toLowerCase()?.includes(searchTerm?.toLowerCase()) || 
                          achievement?.description?.toLowerCase()?.includes(searchTerm?.toLowerCase());
-    return matchesCategory && matchesSearch;
+    return matchesCategory && matchesType && matchesSearch;
   });
 
   if (loading) {
@@ -115,11 +157,31 @@ const Achievements = () => {
           {/* Header Section */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              Your Achievements 🏆
+              Achievement Center 🏆
             </h1>
-            <p className="text-muted-foreground">
-              Celebrate your progress and unlock new milestones on your fitness journey.
+            <p className="text-muted-foreground mb-4">
+              Unlock all 50 achievements! Track your progress with 10 daily, 15 weekly, and 25 general achievements.
             </p>
+            
+            {/* Achievement Type Tabs */}
+            <div className="flex space-x-1 bg-muted/30 rounded-lg p-1 w-fit">
+              {types.map(type => (
+                <button
+                  key={type}
+                  onClick={() => setSelectedType(type)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    selectedType === type
+                      ? 'bg-primary text-white'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {type === 'all' ? 'All (50)' : 
+                   type === 'daily' ? 'Daily (10)' :
+                   type === 'weekly' ? 'Weekly (15)' : 
+                   'General (25)'}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Stats Panel */}

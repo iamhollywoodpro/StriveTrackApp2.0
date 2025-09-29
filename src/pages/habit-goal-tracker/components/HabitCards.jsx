@@ -181,7 +181,7 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
                       onClick={() => isClickable && handleDayClick(habit?.id, day?.index)}
                       disabled={!isClickable}
                       className={`
-                        w-10 h-10 rounded-lg border text-sm font-medium transition-all duration-200
+                        w-10 h-10 rounded-lg border text-sm font-medium transition-all duration-200 relative overflow-hidden
                         ${isCompleted 
                           ? 'bg-green-500 text-white border-green-500 shadow-sm' 
                           : 'bg-background border-border hover:bg-muted hover:border-muted-foreground'
@@ -190,10 +190,15 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
                         ${isClickable ? 'cursor-pointer hover:scale-105' : 'cursor-not-allowed opacity-50'}
                       `}
                     >
-                      {isCompleted ? (
-                        <Icon name="Check" size={16} color="currentColor" />
-                      ) : (
-                        day?.number
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className={`text-xs font-bold ${isCompleted ? 'text-white/40' : ''}`}>
+                          {day?.number}
+                        </span>
+                      </div>
+                      {isCompleted && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Icon name="Check" size={14} className="text-white drop-shadow-sm" />
+                        </div>
                       )}
                     </button>
                   </div>

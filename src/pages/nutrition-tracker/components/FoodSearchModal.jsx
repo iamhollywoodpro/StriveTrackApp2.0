@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import Icon from '../../../components/ui/Icon';
+import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
+import { searchFoods, getFoodsByCategory, getPopularFoods, ENHANCED_FOOD_DATABASE } from '../../../data/enhancedFoodDatabase';
 
 const FoodSearchModal = ({ isOpen, onClose, onAddFood, mealType }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -11,6 +12,7 @@ const FoodSearchModal = ({ isOpen, onClose, onAddFood, mealType }) => {
   const [portion, setPortion] = useState('1 serving');
   const [isLoading, setIsLoading] = useState(false);
   const [showCustomForm, setShowCustomForm] = useState(false);
+  const [activeTab, setActiveTab] = useState('all'); // all, breakfast, lunch, dinner, snacks
   const [customFood, setCustomFood] = useState({
     name: '',
     calories: '',
@@ -19,91 +21,53 @@ const FoodSearchModal = ({ isOpen, onClose, onAddFood, mealType }) => {
     fat: ''
   });
 
-  // Mock food database
-  const mockFoodDatabase = [
-    {
-      id: 1,
-      name: "Grilled Chicken Breast",
-      calories: 165,
-      protein: 31,
-      carbs: 0,
-      fat: 3.6,
-      servingSize: "100g"
-    },
-    {
-      id: 2,
-      name: "Brown Rice",
-      calories: 112,
-      protein: 2.6,
-      carbs: 23,
-      fat: 0.9,
-      servingSize: "100g"
-    },
-    {
-      id: 3,
-      name: "Greek Yogurt",
-      calories: 59,
-      protein: 10,
-      carbs: 3.6,
-      fat: 0.4,
-      servingSize: "100g"
-    },
-    {
-      id: 4,
-      name: "Banana",
-      calories: 89,
-      protein: 1.1,
-      carbs: 23,
-      fat: 0.3,
-      servingSize: "1 medium (118g)"
-    },
-    {
-      id: 5,
-      name: "Avocado",
-      calories: 160,
-      protein: 2,
-      carbs: 8.5,
-      fat: 14.7,
-      servingSize: "100g"
-    },
-    {
-      id: 6,
-      name: "Salmon Fillet",
-      calories: 208,
-      protein: 25.4,
-      carbs: 0,
-      fat: 12.4,
-      servingSize: "100g"
-    }
-  ];
-
+  // Search foods using our enhanced comprehensive database
   useEffect(() => {
     if (searchQuery?.trim()) {
       setIsLoading(true);
-      // Simulate API call
+      // Enhanced search with smart matching
       setTimeout(() => {
-        const filtered = mockFoodDatabase?.filter(food =>
-          food?.name?.toLowerCase()?.includes(searchQuery?.toLowerCase())
-        );
-        setSearchResults(filtered);
+        const results = searchFoods(searchQuery);
+        // Filter by category if not 'all'
+        const filteredResults = activeTab === 'all' ? 
+          results : 
+          results.filter(food => food.category === activeTab);
+        setSearchResults(filteredResults);
         setIsLoading(false);
-      }, 500);
+      }, 150);
     } else {
-      setSearchResults([]);
+      // Show category foods or popular foods when no search query
+      const foods = activeTab === 'all' ? 
+        getPopularFoods() : 
+        getFoodsByCategory(activeTab).slice(0, 12);
+      setSearchResults(foods);
     }
-  }, [searchQuery]);
+  }, [searchQuery, activeTab]);
 
   useEffect(() => {
-    // Mock recent foods
-    setRecentFoods(mockFoodDatabase?.slice(0, 3));
-  }, []);
+    // Set recent foods based on meal type or show variety
+    const recentItems = mealType && ENHANCED_FOOD_DATABASE[mealType] ? 
+      getFoodsByCategory(mealType).slice(0, 3) : 
+      getPopularFoods().slice(0, 6);
+    setRecentFoods(recentItems);
+  }, [mealType]);
 
   const handleAddFood = () => {
     if (selectedFood) {
       const foodToAdd = {
-        ...selectedFood,
+        id: Date.now(), // Generate unique ID for this entry
+        foodId: selectedFood.id,
+        name: selectedFood.name,
+        calories: selectedFood.macros.calories,
+        protein: selectedFood.macros.protein,
+        carbs: selectedFood.macros.carbs,
+        fat: selectedFood.macros.fat,
+        fiber: selectedFood.macros.fiber || 0,
+        sugar: selectedFood.macros.sugar || 0,
+        servingSize: selectedFood.servingSize,
+        image: selectedFood.image,
         portion,
-        id: Date.now() // Generate unique ID
+        category: selectedFood.category
       };
       onAddFood(mealType, foodToAdd);
       onClose();
@@ -165,11 +129,35 @@ const FoodSearchModal = ({ isOpen, onClose, onAddFood, mealType }) => {
               <div className="mb-6">
                 <Input
                   type="search"
-                  placeholder="Search for food..."
+                  placeholder="Search 500+ foods (e.g., hamburger, chicken, salmon, pizza)..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e?.target?.value)}
                   className="mb-4"
                 />
+                
+                {/* Category Tabs */}
+                <div className="flex space-x-1 mb-4 bg-muted/30 rounded-lg p-1">
+                  {[
+                    { id: 'all', name: 'All Foods', icon: 'Grid3X3' },
+                    { id: 'breakfast', name: 'Breakfast', icon: 'Coffee' },
+                    { id: 'lunch', name: 'Lunch', icon: 'Salad' },
+                    { id: 'dinner', name: 'Dinner', icon: 'ChefHat' },
+                    { id: 'snacks', name: 'Snacks', icon: 'Apple' }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center space-x-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        activeTab === tab.id
+                          ? 'bg-primary text-white'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      <Icon name={tab.icon} size={16} />
+                      <span className="hidden sm:inline">{tab.name}</span>
+                    </button>
+                  ))}
+                </div>
                 
                 {/* Add Custom Food Button */}
                 <Button 
@@ -183,118 +171,151 @@ const FoodSearchModal = ({ isOpen, onClose, onAddFood, mealType }) => {
                 </Button>
               </div>
 
-              {/* Recent Foods */}
-              {!searchQuery && recentFoods?.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium text-foreground mb-3">Recent Foods</h3>
-                  <div className="space-y-2">
-                    {recentFoods?.map((food) => (
+              {/* Food Results Grid */}
+              <div className="mb-6">
+                <h3 className="text-lg font-medium text-foreground mb-3">
+                  {searchQuery ? `Search Results for "${searchQuery}"` : 
+                   activeTab === 'all' ? 'Popular Foods' : `${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Foods`}
+                </h3>
+                
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <span className="ml-3 text-muted-foreground">Searching foods...</span>
+                  </div>
+                ) : searchResults?.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {searchResults?.map((food) => (
                       <div
                         key={food?.id}
-                        className="flex items-center space-x-3 p-3 rounded-lg border border-border hover:bg-muted/50 cursor-pointer transition-colors"
+                        className={`flex items-start space-x-3 p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${
+                          selectedFood?.id === food?.id
+                            ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                            : 'border-border hover:border-primary/30 hover:bg-muted/30'
+                        }`}
                         onClick={() => setSelectedFood(food)}
                       >
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                          <Icon name="Target" size={20} color="currentColor" className="text-muted-foreground" />
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+                          {food?.image ? (
+                            <img 
+                              src={food.image} 
+                              alt={food.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Icon name="UtensilsCrossed" size={24} className="text-muted-foreground" />
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <h4 className="font-medium text-foreground">{food?.name}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {food?.calories} cal • {food?.servingSize}
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-foreground mb-1 line-clamp-1">{food?.name}</h4>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {food?.macros?.calories} cal • {food?.servingSize}
                           </p>
+                          <div className="flex space-x-3 text-xs">
+                            <span className="text-green-600">P: {food?.macros?.protein}g</span>
+                            <span className="text-blue-600">C: {food?.macros?.carbs}g</span>
+                            <span className="text-orange-600">F: {food?.macros?.fat}g</span>
+                          </div>
                         </div>
-                        <Icon name="Plus" size={20} color="currentColor" className="text-primary" />
+                        {selectedFood?.id === food?.id && (
+                          <Icon name="CheckCircle" size={20} className="text-primary flex-shrink-0" />
+                        )}
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-
-              {/* Search Results */}
-              {searchQuery && (
-                <div className="mb-6">
-                  <h3 className="text-lg font-medium text-foreground mb-3">Search Results</h3>
-                  {isLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </div>
-                  ) : searchResults?.length > 0 ? (
-                    <div className="space-y-2">
-                      {searchResults?.map((food) => (
-                        <div
-                          key={food?.id}
-                          className={`flex items-center space-x-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                            selectedFood?.id === food?.id
-                              ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
-                          }`}
-                          onClick={() => setSelectedFood(food)}
-                        >
-                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                            <Icon name="Target" size={20} color="currentColor" className="text-muted-foreground" />
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium text-foreground">{food?.name}</h4>
-                            <p className="text-sm text-muted-foreground">
-                              {food?.calories} cal • P: {food?.protein}g • C: {food?.carbs}g • F: {food?.fat}g
-                            </p>
-                          </div>
-                          {selectedFood?.id === food?.id && (
-                            <Icon name="Check" size={20} color="currentColor" className="text-primary" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8">
-                      <Icon name="Search" size={48} color="currentColor" className="mx-auto text-muted-foreground mb-3" />
-                      <p className="text-muted-foreground mb-4">No foods found for "{searchQuery}"</p>
+                ) : (
+                  <div className="text-center py-12">
+                    <Icon name="Search" size={48} className="mx-auto text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground mb-4">
+                      {searchQuery ? `No foods found for "${searchQuery}"` : 'No foods available'}
+                    </p>
+                    {searchQuery && (
                       <Button onClick={() => setShowCustomForm(true)} variant="outline">
                         Add "{searchQuery}" as custom food
                       </Button>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </div>
+
+
 
               {/* Selected Food Details */}
               {selectedFood && (
-                <div className="bg-muted/30 rounded-lg p-4 mb-6">
-                  <h3 className="text-lg font-medium text-foreground mb-3">Selected Food</h3>
-                  <div className="flex items-center space-x-3 mb-4">
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
-                      <Icon name="Target" size={24} color="currentColor" className="text-muted-foreground" />
+                <div className="bg-gradient-to-r from-primary/5 to-secondary/5 rounded-xl p-6 border border-primary/20">
+                  <h3 className="text-lg font-semibold text-foreground mb-4">Selected Food</h3>
+                  <div className="flex items-center space-x-4 mb-6">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-white shadow-sm border border-border">
+                      {selectedFood?.image ? (
+                        <img 
+                          src={selectedFood.image} 
+                          alt={selectedFood.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            e.target.nextSibling.style.display = 'flex';
+                          }}
+                        />
+                      ) : null}
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Icon name="UtensilsCrossed" size={28} className="text-muted-foreground" />
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-medium text-foreground">{selectedFood?.name}</h4>
-                      <p className="text-sm text-muted-foreground">{selectedFood?.servingSize}</p>
+                    <div className="flex-1">
+                      <h4 className="text-xl font-semibold text-foreground mb-1">{selectedFood?.name}</h4>
+                      <p className="text-sm text-muted-foreground mb-2">{selectedFood?.servingSize}</p>
+                      <div className="flex items-center space-x-2">
+                        <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                          {selectedFood?.category}
+                        </span>
+                      </div>
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-4 gap-4 mb-4">
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-foreground">{selectedFood?.calories}</p>
-                      <p className="text-xs text-muted-foreground">Calories</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-white/70 rounded-lg p-3 text-center border border-border/50">
+                      <p className="text-2xl font-bold text-foreground">{selectedFood?.macros?.calories}</p>
+                      <p className="text-xs text-muted-foreground font-medium">Calories</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-green-600">{selectedFood?.protein}g</p>
-                      <p className="text-xs text-muted-foreground">Protein</p>
+                    <div className="bg-white/70 rounded-lg p-3 text-center border border-border/50">
+                      <p className="text-2xl font-bold text-green-600">{selectedFood?.macros?.protein}g</p>
+                      <p className="text-xs text-muted-foreground font-medium">Protein</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-blue-600">{selectedFood?.carbs}g</p>
-                      <p className="text-xs text-muted-foreground">Carbs</p>
+                    <div className="bg-white/70 rounded-lg p-3 text-center border border-border/50">
+                      <p className="text-2xl font-bold text-blue-600">{selectedFood?.macros?.carbs}g</p>
+                      <p className="text-xs text-muted-foreground font-medium">Carbs</p>
                     </div>
-                    <div className="text-center">
-                      <p className="text-lg font-bold text-orange-600">{selectedFood?.fat}g</p>
-                      <p className="text-xs text-muted-foreground">Fat</p>
+                    <div className="bg-white/70 rounded-lg p-3 text-center border border-border/50">
+                      <p className="text-2xl font-bold text-orange-600">{selectedFood?.macros?.fat}g</p>
+                      <p className="text-xs text-muted-foreground font-medium">Fat</p>
                     </div>
                   </div>
+
+                  {selectedFood?.macros?.fiber > 0 && (
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div className="bg-white/70 rounded-lg p-3 text-center border border-border/50">
+                        <p className="text-lg font-bold text-purple-600">{selectedFood?.macros?.fiber}g</p>
+                        <p className="text-xs text-muted-foreground font-medium">Fiber</p>
+                      </div>
+                      <div className="bg-white/70 rounded-lg p-3 text-center border border-border/50">
+                        <p className="text-lg font-bold text-pink-600">{selectedFood?.macros?.sugar}g</p>
+                        <p className="text-xs text-muted-foreground font-medium">Sugar</p>
+                      </div>
+                    </div>
+                  )}
 
                   <Input
                     label="Portion Size"
                     type="text"
                     value={portion}
                     onChange={(e) => setPortion(e?.target?.value)}
-                    placeholder="e.g., 1 serving, 100g, 1 cup"
+                    placeholder="e.g., 1 serving, 150g, 2 pieces"
+                    className="bg-white/70"
                   />
                 </div>
               )}

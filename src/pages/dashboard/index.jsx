@@ -9,6 +9,11 @@ import MotivationalQuote from './components/MotivationalQuote';
 import QuickActions from './components/QuickActions';
 import AchievementsBadges from './components/AchievementsBadges';
 import GoalDeadlines from './components/GoalDeadlines';
+import HabitsGoalsSummary from './components/HabitsGoalsSummary';
+import InteractiveHabits from './components/InteractiveHabits';
+import WeeklyStreaks from './components/WeeklyStreaks';
+import TodaysFocus from './components/TodaysFocus';
+import QuickProgressUpdate from './components/QuickProgressUpdate';
 
 import { apiGet } from '../../lib/api';
 
@@ -32,6 +37,8 @@ const Dashboard = () => {
 
   const [userAchievements, setUserAchievements] = useState([]);
   const [userGoals, setUserGoals] = useState([]);
+  const [userHabits, setUserHabits] = useState([]);
+  const [habitLogs, setHabitLogs] = useState([]);
   const [recentActivity, setRecentActivity] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -136,6 +143,15 @@ const Dashboard = () => {
       const res = await apiGet('/goals', supabase);
       const data = res?.items ?? res ?? [];
       const formattedGoals = data.map(goal => {
+        // Ensure we have a valid numeric progress value (same logic as habit-goal-tracker)
+        let progress = 0;
+        if (goal?.progress !== null && goal?.progress !== undefined) {
+          progress = Number(goal.progress) || 0;
+        } else if (goal?.status !== null && goal?.status !== undefined) {
+          progress = Number(goal.status) || 0;
+        }
+        progress = Math.max(0, Math.min(100, progress));
+        
         const targetDate = goal?.target_date ? new Date(goal.target_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
         const daysRemaining = Math.ceil((targetDate - new Date()) / (1000 * 60 * 60 * 24));
         return {
@@ -143,18 +159,42 @@ const Dashboard = () => {
           title: goal?.title || 'Untitled Goal',
           description: goal?.description || 'No description provided',
           deadline: targetDate,
-          progress: Math.max(0, Math.min(100, goal?.progress || 0)),
+          targetDate: targetDate,
+          progress: progress,
           target: 100,
           unit: '%',
           daysRemaining: Math.max(0, daysRemaining),
           isOverdue: daysRemaining < 0,
-          isCompleted: (goal?.progress || 0) >= 100
+          isCompleted: progress >= 100
         };
       });
       setUserGoals(formattedGoals);
     } catch (error) {
       console.error('Error fetching user goals:', error);
       setUserGoals([]);
+    }
+  };
+
+  // Fetch habits and habit logs
+  const fetchUserHabits = async () => {
+    if (!user?.id) return;
+
+    try {
+      const today = new Date();
+      const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const from = sevenDaysAgo.toISOString().split('T')[0];
+      const to = today.toISOString().split('T')[0];
+
+      const res = await apiGet(`/habits?from=${from}&to=${to}`, supabase);
+      const habits = res?.items ?? res ?? [];
+      const logs = res?.logs ?? [];
+
+      setUserHabits(habits);
+      setHabitLogs(logs);
+    } catch (error) {
+      console.error('Error fetching user habits:', error);
+      setUserHabits([]);
+      setHabitLogs([]);
     }
   };
 
@@ -218,12 +258,47 @@ const Dashboard = () => {
     }
   };
 
+  // Refresh function for habit updates
+  const refreshData = async () => {
+    if (user?.id) {
+      await Promise.all([
+        fetchUserStats(),
+        fetchUserHabits(),
+        fetchUserGoals(),
+        fetchRecentActivity()
+      ]);
+    }
+  };
+
+  // Quick habit toggle function for dashboard components
+  const handleQuickHabitToggle = async (habitId) => {
+    if (!user?.id) return;
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const isCompleted = habitLogs?.some(log => 
+        log?.habit_id === habitId && log?.date === today
+      );
+
+      await apiSend('POST', `/habits/${habitId}/log`, { 
+        date: today, 
+        remove: !!isCompleted 
+      }, supabase);
+
+      // Refresh data
+      await refreshData();
+    } catch (error) {
+      console.error('Error toggling habit:', error);
+    }
+  };
+
   // Load all data when component mounts or user changes
   useEffect(() => {
     if (user?.id) {
       fetchUserStats();
       fetchUserAchievements();
       fetchUserGoals();
+      fetchUserHabits();
       fetchRecentActivity();
     }
   }, [user?.id]);
@@ -283,80 +358,57 @@ const Dashboard = () => {
             <StatsGrid stats={dashboardStats} />
           </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
-            {/* Left Column - Activity Timeline */}
-            <div className="lg:col-span-2 space-y-8">
-              <ActivityTimeline activities={recentActivity} />
-              <MotivationalQuote quote={dailyQuote} />
-            </div>
-
-            {/* Right Column - Quick Actions & Achievements */}
-            <div className="space-y-8">
-              <QuickActions />
-              <AchievementsBadges achievements={userAchievements} />
-            </div>
-          </div>
-
-          {/* Goals Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <GoalDeadlines goals={userGoals} />
+          {/* Main Content Grid - Perfectly Balanced Layout */}
+          <div className="space-y-6 mb-8">
+            {/* Top Row - Interactive Habits (Full Width) */}
+            <InteractiveHabits 
+              habits={userHabits} 
+              habitLogs={habitLogs} 
+              onRefresh={refreshData}
+            />
             
-            {/* Enhanced Additional Stats Card with better data */}
-            <div className="bg-card rounded-xl p-6 border border-border shadow-elevation-1">
-              <h3 className="text-lg font-semibold text-foreground mb-6">Your Progress Summary</h3>
+            {/* Middle Row - Focus & Progress Cards */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <TodaysFocus 
+                habits={userHabits}
+                goals={userGoals}
+                onHabitToggle={handleQuickHabitToggle}
+              />
               
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-bold text-sm">{dashboardStats?.totalWorkouts || 0}</span>
-                    </div>
-                    <span className="text-sm font-medium text-foreground">Active Habits</span>
-                  </div>
-                  <span className="text-sm text-muted-foreground font-medium">
-                    {dashboardStats?.totalWorkouts > 0 ? 'Keep it up!' : 'Start your first habit!'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                      <span className="text-green-600 font-bold text-sm">{dashboardStats?.photosUploaded || 0}</span>
-                    </div>
-                    <span className="text-sm font-medium text-foreground">Progress Photos</span>
-                  </div>
-                  <span className="text-sm text-muted-foreground font-medium">
-                    {dashboardStats?.photosUploaded > 0 ? 'Great documentation!' : 'Upload your first photo!'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                      <span className="text-purple-600 font-bold text-sm">{dashboardStats?.activeGoals || 0}</span>
-                    </div>
-                    <span className="text-sm font-medium text-foreground">Active Goals</span>
-                  </div>
-                  <span className="text-sm text-muted-foreground font-medium">
-                    {dashboardStats?.activeGoals > 0 ? 'Stay focused!' : 'Set your first goal!'}
-                  </span>
-                </div>
+              <QuickProgressUpdate 
+                goals={userGoals}
+                onRefresh={refreshData}
+              />
+            </div>
 
-                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
-                      <span className="text-orange-600 font-bold text-sm">{dashboardStats?.completedGoals || 0}</span>
-                    </div>
-                    <span className="text-sm font-medium text-foreground">Goals Completed</span>
-                  </div>
-                  <span className="text-sm text-muted-foreground font-medium">
-                    {dashboardStats?.completedGoals > 0 ? 'Excellent work!' : 'Complete your first goal!'}
-                  </span>
-                </div>
+            {/* Bottom Row - Goals, Activity & Achievements (Balanced 3-Column) */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Goals Column - Full Height */}
+              <div className="lg:col-span-1">
+                <GoalDeadlines goals={userGoals} />
+              </div>
+              
+              {/* Activity Column */}
+              <div className="lg:col-span-1">
+                <ActivityTimeline activities={recentActivity} />
+              </div>
+              
+              {/* Achievements Column */}
+              <div className="lg:col-span-1">
+                <AchievementsBadges achievements={userAchievements} />
               </div>
             </div>
+
+            {/* Motivational Quote - Full Width Bottom */}
+            <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-6 border border-border/50">
+              <p className="text-lg font-medium text-foreground italic text-center mb-2">
+                "{dailyQuote.text}"
+              </p>
+              <p className="text-sm text-muted-foreground text-center">— {dailyQuote.author}</p>
+            </div>
           </div>
+
+
         </div>
       </main>
     </div>

@@ -2,10 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { uploadFile, getFileUrl, deleteFile } from '../../lib/supabase';
+import { apiGet, apiSend } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
 import Input from '../../components/ui/Input';
-import Icon from '../../components/AppIcon';
+import Icon from '../../components/ui/Icon';
 
 const UserProfile = () => {
   const { user, userProfile, updateProfile, loading, profileLoading } = useAuth();
@@ -36,6 +37,38 @@ const UserProfile = () => {
     }
   }, [userProfile, isEditing]);
 
+  // Load profile from Worker API
+  const loadProfile = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const profile = await apiGet('/profile', supabase);
+      
+      if (profile) {
+        const updatedProfile = {
+          id: user.id,
+          full_name: profile.name || '',
+          bio: profile.bio || '',
+          height: profile.targets?.height || '',
+          weight: profile.targets?.weight || '',
+          goals: profile.targets?.goals || '',
+          profile_picture_path: userProfile?.profile_picture_path || null
+        };
+        
+        setUserProfile(updatedProfile);
+        setFormData({
+          full_name: updatedProfile.full_name,
+          bio: updatedProfile.bio,
+          height: updatedProfile.height,
+          weight: updatedProfile.weight,
+          goals: updatedProfile.goals
+        });
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
+
   // Fetch user achievements
   const fetchAchievements = async () => {
     if (!user?.id) return;
@@ -43,7 +76,11 @@ const UserProfile = () => {
     try {
       setAchievementsLoading(true);
 
-      // Get all available achievements
+      // Get achievements from Worker API
+      const achievementsData = await apiGet('/achievements', supabase);
+      const earnedAchievements = achievementsData?.items || [];
+      
+      // Get all available achievements from Supabase catalog for reference
       const { data: allAchievementsData, error: achievementsError } = await supabase
         ?.from('achievements')
         ?.select('*')
@@ -56,31 +93,17 @@ const UserProfile = () => {
         setAllAchievements(allAchievementsData || []);
       }
 
-      // Get user's earned achievements
-      const { data: earnedAchievements, error: userError } = await supabase
-        ?.from('user_achievements')
-        ?.select(`
-          id,
-          earned_at,
-          achievement_id,
-          achievements (
-            id,
-            name,
-            description,
-            icon,
-            points,
-            category,
-            frequency
-          )
-        `)
-        ?.eq('user_id', user?.id)
-        ?.order('earned_at', { ascending: false });
+      // Process earned achievements from Worker
+      const processedAchievements = earnedAchievements?.map(achievement => ({
+        id: achievement.id,
+        name: achievement.name,
+        description: achievement.description,
+        points: achievement.points,
+        created_at: achievement.created_at,
+        category: achievement.category || 'general'
+      })) || [];
 
-      if (userError) {
-        console.error('Error fetching user achievements:', userError);
-      } else {
-        setUserAchievements(earnedAchievements || []);
-      }
+      setUserAchievements(processedAchievements);
 
     } catch (error) {
       console.error('Error in fetchAchievements:', error);
@@ -91,6 +114,7 @@ const UserProfile = () => {
 
   useEffect(() => {
     if (user?.id) {
+      loadProfile();
       fetchAchievements();
     }
   }, [user?.id]);
@@ -107,12 +131,32 @@ const UserProfile = () => {
     e?.preventDefault();
     
     try {
-      const { error } = await updateProfile(formData);
+      // Use Worker API to save profile
+      const profileData = {
+        name: formData.full_name,
+        bio: formData.bio,
+        targets: {
+          height: formData.height,
+          weight: formData.weight,
+          goals: formData.goals
+        }
+      };
       
-      if (error) {
-        throw error;
-      }
-
+      await apiSend('PUT', '/profile', profileData, supabase);
+      
+      // Update local userProfile state
+      const updatedProfile = {
+        ...userProfile,
+        full_name: formData.full_name,
+        bio: formData.bio,
+        height: formData.height,
+        weight: formData.weight,
+        goals: formData.goals
+      };
+      
+      // Update the auth context
+      updateProfile(updatedProfile);
+      
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -124,9 +168,9 @@ const UserProfile = () => {
     const file = event?.target?.files?.[0];
     if (!file || !user?.id) return;
 
-    // Validate file size (5MB limit)
-    if (file?.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+    // Validate file size (10MB limit for Worker API)
+    if (file?.size > 10 * 1024 * 1024) {
+      alert('File size must be less than 10MB');
       return;
     }
 
@@ -140,30 +184,56 @@ const UserProfile = () => {
 
     try {
       // Delete old profile picture if exists
-      if (userProfile?.profile_picture_path) {
-        await deleteFile('profile-images', userProfile?.profile_picture_path);
+      if (userProfile?.profile_picture_url) {
+        try {
+          // Extract the key from the existing URL to delete old image
+          const urlParts = userProfile.profile_picture_url.split('/api/media/');
+          if (urlParts.length > 1) {
+            const oldKey = decodeURIComponent(urlParts[1].split('?')[0]);
+            await apiSend('DELETE', `/media/${encodeURIComponent(oldKey)}`, null, supabase);
+          }
+        } catch (deleteError) {
+          console.warn('Could not delete old profile picture:', deleteError);
+        }
       }
 
-      // Upload new profile picture
-      const fileExt = file?.name?.split('.')?.pop();
-      const fileName = `${user?.id}/profile.${fileExt}`;
+      // Upload new profile picture using Worker API
+      const formData = new FormData();
+      formData.append('file', file);
       
-      const { error: uploadError } = await uploadFile('profile-images', fileName, file);
-      
-      if (uploadError) throw uploadError;
+      // Create unique filename for profile picture
+      const fileExt = file.name.split('.').pop();
+      const fileName = `profile_${user.id}_${Date.now()}.${fileExt}`;
+      formData.append('key', fileName);
 
-      // Get the file URL (signed URL for private bucket)
-      const { url, error: urlError } = await getFileUrl('profile-images', fileName, false);
-      
-      if (urlError) throw urlError;
-
-      // Update user profile with new picture URL and path
-      const { error: updateError } = await updateProfile({
-        profile_picture_url: url,
-        profile_picture_path: fileName
+      const response = await fetch(`${window.location.origin}/api/media`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: formData
       });
 
-      if (updateError) throw updateError;
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // The Worker API returns the media URL
+      const newProfilePictureUrl = `${window.location.origin}/api/media/${encodeURIComponent(fileName)}`;
+
+      // Update user profile with new picture URL
+      const updatedProfile = {
+        ...userProfile,
+        profile_picture_url: newProfilePictureUrl,
+        profile_picture_path: fileName
+      };
+      
+      // Update the auth context
+      updateProfile(updatedProfile);
+
+      alert('Profile picture updated successfully!');
 
     } catch (error) {
       console.error('Error uploading profile picture:', error);
@@ -222,12 +292,16 @@ const UserProfile = () => {
                 <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
                   {userProfile?.profile_picture_url ? (
                     <img
-                      src={userProfile?.profile_picture_url}
+                      src={userProfile.profile_picture_url}
                       alt="Profile"
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        console.error('Failed to load profile picture');
+                        e.target.style.display = 'none';
+                      }}
                     />
                   ) : (
-                    <Icon name="User" size={32} color="white" strokeWidth={2} />
+                    <Icon name="User" size={32} className="text-white" />
                   )}
                 </div>
                 <button

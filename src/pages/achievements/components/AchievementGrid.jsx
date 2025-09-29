@@ -3,6 +3,7 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import useAchievementCelebration from '../../../hooks/useAchievementCelebration';
 import AchievementConfetti from '../../../components/ui/AchievementConfetti';
+import { getAchievementIcon, getRarityStyle, getProgressOpacity } from '../../../utils/achievementIcons';
 
 const AchievementGrid = ({ achievements, selectedCategory }) => {
   const { celebrate, showConfetti, celebratingAchievement } = useAchievementCelebration();
@@ -73,13 +74,23 @@ const AchievementGrid = ({ achievements, selectedCategory }) => {
           >
             {/* Badge Artwork */}
             <div className="flex justify-center mb-4">
-              <div className={`w-20 h-20 bg-gradient-to-br ${getBadgeColor(achievement?.rarity, achievement?.isEarned)} rounded-full flex items-center justify-center shadow-elevation-1 relative`}>
-                <span className="text-3xl">
-                  {achievement?.artwork}
-                </span>
+              <div className={`w-20 h-20 bg-gradient-to-br ${getBadgeColor(achievement?.rarity, achievement?.isEarned)} rounded-full flex items-center justify-center shadow-elevation-1 relative ${!achievement?.isEarned ? getProgressOpacity(achievement?.progress || 0) : ''}`}>
+                {/* Icon or Emoji */}
+                {getAchievementIcon(achievement?.id || achievement?.code)?.icon ? (
+                  <Icon 
+                    name={getAchievementIcon(achievement?.id || achievement?.code).icon} 
+                    size={32} 
+                    color="white" 
+                    strokeWidth={2}
+                  />
+                ) : (
+                  <span className="text-2xl">
+                    {achievement?.icon || '🏆'}
+                  </span>
+                )}
                 {achievement?.isEarned && (
                   <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
-                    <Icon name="Check" size={16} color="white" strokeWidth={3} />
+                    <Icon name="Check" size={14} color="white" strokeWidth={3} />
                   </div>
                 )}
               </div>

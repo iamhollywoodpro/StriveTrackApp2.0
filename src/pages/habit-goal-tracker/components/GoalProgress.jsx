@@ -9,10 +9,21 @@ const GoalProgress = ({ goals, onDeleteGoal }) => {
   const [progressUpdate, setProgressUpdate] = useState(0);
 
   const getProgressPercentage = (goal) => {
-    if (!goal?.progress && !goal?.currentValue) return 0;
-    const current = goal?.currentValue || goal?.progress || 0;
-    const target = goal?.target || 100;
-    return Math.min((current / target) * 100, 100);
+    // Handle both progress and currentValue, ensure we have valid numbers
+    let current = 0;
+    if (goal?.progress !== null && goal?.progress !== undefined) {
+      current = Number(goal.progress) || 0;
+    } else if (goal?.currentValue !== null && goal?.currentValue !== undefined) {
+      current = Number(goal.currentValue) || 0;
+    }
+    
+    const target = Number(goal?.target) || 100;
+    if (target === 0) return 0; // Avoid division by zero
+    
+    const percentage = (current / target) * 100;
+    // Ensure percentage is a valid number and within range
+    if (isNaN(percentage)) return 0;
+    return Math.min(Math.max(percentage, 0), 100);
   };
 
   const getDaysRemaining = (deadline) => {

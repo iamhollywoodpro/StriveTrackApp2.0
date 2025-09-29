@@ -42,20 +42,32 @@ const HabitGoalTracker = () => {
       const res = await apiGet('/goals', supabase);
       const data = res?.items ?? res ?? [];
       // Transform goals data to match component expectations
-      const transformedGoals = data.map(goal => ({
-        id: goal?.id,
-        title: goal?.title,
-        description: goal?.description,
-        targetDate: goal?.target_date ? new Date(goal?.target_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        progress: goal?.progress || 0,
-        target: 100,
-        unit: "%",
-        currentValue: goal?.progress || 0,
-        category: goal?.category || "Personal",
-        priority: goal?.priority || "Medium",
-        milestones: goal?.milestones || [],
-        created_at: goal?.created_at
-      }));
+      const transformedGoals = data.map(goal => {
+        // Ensure we have a valid numeric progress value
+        let progress = 0;
+        if (goal?.progress !== null && goal?.progress !== undefined) {
+          progress = Number(goal.progress) || 0;
+        } else if (goal?.status !== null && goal?.status !== undefined) {
+          progress = Number(goal.status) || 0;
+        }
+        // Ensure progress is within valid range
+        progress = Math.max(0, Math.min(100, progress));
+        
+        return {
+          id: goal?.id,
+          title: goal?.title,
+          description: goal?.description,
+          targetDate: goal?.target_date ? new Date(goal?.target_date) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          progress: progress,
+          target: 100,
+          unit: "%",
+          currentValue: progress,
+          category: goal?.category || "Personal",
+          priority: goal?.priority || "Medium",
+          milestones: goal?.milestones || [],
+          created_at: goal?.created_at
+        };
+      });
 
       setGoals(transformedGoals);
     } catch (error) {

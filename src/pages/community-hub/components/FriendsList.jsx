@@ -3,7 +3,7 @@ import Icon from '../../../components/AppIcon';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 
-const FriendsList = ({ friends, onStartChat }) => {
+const FriendsList = ({ friends, onStartChat, onDeleteFriend, onToggleFriend }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
 
@@ -113,13 +113,25 @@ const FriendsList = ({ friends, onStartChat }) => {
                 </div>
               </div>
               
-              <Button
-                variant="ghost"
-                size="sm"
-                className="rounded-full"
-              >
-                <Icon name="MoreVertical" size={18} />
-              </Button>
+              <div className="flex items-center space-x-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDeleteFriend?.(friend?.id)}
+                  className="rounded-full text-red-500 hover:text-red-600 hover:bg-red-50"
+                  title="Remove friend"
+                >
+                  <Icon name="UserX" size={16} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full"
+                  title="More options"
+                >
+                  <Icon name="MoreVertical" size={16} />
+                </Button>
+              </div>
             </div>
 
             {/* Stats */}
@@ -210,10 +222,10 @@ const FriendsList = ({ friends, onStartChat }) => {
                 </div>
               </div>
               <div className="flex space-x-2">
-                <Button size="sm" variant="outline">
+                <Button size="sm" variant="outline" onClick={() => onToggleFriend?.(`friend-${i}`, 'add')}>
                   <Icon name="UserPlus" size={14} />
                 </Button>
-                <Button size="sm" variant="ghost">
+                <Button size="sm" variant="ghost" onClick={() => onToggleFriend?.(`friend-${i}`, 'remove')}>
                   <Icon name="X" size={14} />
                 </Button>
               </div>

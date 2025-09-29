@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StriveTrack API Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">🚀 StriveTrack Social API Test</h1>
+        
+        <div class="grid gap-4">
+            <button onclick="testHealth()" class="bg-blue-500 text-white px-4 py-2 rounded">
+                Test API Health
+            </button>
+            
+            <button onclick="testPosts()" class="bg-green-500 text-white px-4 py-2 rounded">
+                Test Posts (No Auth)
+            </button>
+            
+            <button onclick="testLeaderboard()" class="bg-purple-500 text-white px-4 py-2 rounded">
+                Test Leaderboard (No Auth)
+            </button>
+        </div>
+        
+        <div id="results" class="mt-6 p-4 bg-white rounded shadow">
+            <h3 class="font-bold mb-2">Results:</h3>
+            <pre id="output" class="text-sm"></pre>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:3001' 
+            : 'https://3001-i8diwm964nb6ljbdespoj-6532622b.e2b.dev';
+        
+        function log(message) {
+            document.getElementById('output').textContent += message + '\n';
+        }
+        
+        async function testHealth() {
+            log('🔍 Testing API Health...');
+            try {
+                const response = await fetch(`${API_URL}/api/health`);
+                const data = await response.json();
+                log('✅ Health Check: ' + JSON.stringify(data, null, 2));
+            } catch (error) {
+                log('❌ Health Check Error: ' + error.message);
+            }
+        }
+        
+        async function testPosts() {
+            log('🔍 Testing Posts (without auth)...');
+            try {
+                const response = await fetch(`${API_URL}/api/posts`);
+                const data = await response.json();
+                log('📝 Posts Response: ' + JSON.stringify(data, null, 2));
+            } catch (error) {
+                log('❌ Posts Error: ' + error.message);
+            }
+        }
+        
+        async function testLeaderboard() {
+            log('🔍 Testing Leaderboard (without auth)...');
+            try {
+                const response = await fetch(`${API_URL}/api/leaderboard`);
+                const data = await response.json();
+                log('🏆 Leaderboard Response: ' + JSON.stringify(data, null, 2));
+            } catch (error) {
+                log('❌ Leaderboard Error: ' + error.message);
+            }
+        }
+        
+        // Auto-test on load
+        setTimeout(() => {
+            testHealth();
+        }, 1000);
+    </script>
+</body>
+</html>

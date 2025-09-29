@@ -10,19 +10,34 @@ import ChatInterface from './components/ChatInterface';
 import CreatePostModal from './components/CreatePostModal';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
+import { socialAPI } from '../../config/api';
 
 const CommunityHub = () => {
   const { user, userProfile } = useAuth();
+  const [session, setSession] = useState(null);
   const [activeTab, setActiveTab] = useState('feed');
   const [isCreatePostModalOpen, setIsCreatePostModalOpen] = useState(false);
   const [activeChatUser, setActiveChatUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Get session for API calls
+  useEffect(() => {
+    const getSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setSession(session);
+    };
+    
+    if (user?.id) {
+      getSession();
+    }
+  }, [user?.id]);
 
   // Real data from database
   const [posts, setPosts] = useState([]);
   const [friends, setFriends] = useState([]);
   const [challenges, setChallenges] = useState([]);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [stats, setStats] = useState({
     totalFriends: 0,
     activeChallenges: 0,
@@ -31,42 +46,45 @@ const CommunityHub = () => {
 
   // Load all community data from database
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && session?.access_token) {
       loadCommunityData();
+    } else {
+      console.log('Waiting for authentication...', { user: !!user?.id, session: !!session?.access_token });
+      setError('Please log in to access Community Hub');
+      setLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, session?.access_token]);
 
   const loadCommunityData = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      // Load posts from social_posts table with user profile info
-      const { data: postsData, error: postsError } = await supabase?.from('social_posts')?.select(`
-          *,
-          profiles:user_id (
-            id,
-            name,
-            username,
-            points,
-            user_profiles!inner (
-              full_name,
-              profile_picture_url
-            )
-          )
-        `)?.order('created_at', { ascending: false })?.limit(20);
+      // Check if we have a valid session before making API calls
+      if (!session?.access_token) {
+        console.log('No valid session found, skipping API calls');
+        setError('Please log in to view community features');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Loading community data with session:', !!session?.access_token);
+      
+      // Load posts using our amazing new social API! 🚀
+      const result = await socialAPI.getPosts(20, session);
 
-      if (postsError) {
-        console.error('Posts loading error:', postsError);
+      if (result.error) {
+        console.error('Posts loading error:', result.error);
+        setError('Failed to load posts');
       } else {
-        const formattedPosts = postsData?.map(post => ({
+        const formattedPosts = result.posts?.map(post => ({
           id: post?.id,
           user: {
-            id: post?.profiles?.id,
-            name: post?.profiles?.user_profiles?.[0]?.full_name || post?.profiles?.name || 'Anonymous',
-            avatar: post?.profiles?.user_profiles?.[0]?.profile_picture_url || null,
-            level: Math.floor((post?.profiles?.points || 0) / 100) + 1,
-            isOnline: false
+            id: post?.user_id,
+            name: post?.user_name || post?.user_email?.split('@')[0] || 'Anonymous',
+            avatar: post?.profile_picture_url || null,
+            level: Math.floor((post?.total_points || 0) / 100) + 1,
+            isOnline: post?.online_status === 'online'
           },
           type: 'post',
           content: post?.content || '',
@@ -77,89 +95,86 @@ const CommunityHub = () => {
           }] : [],
           timestamp: new Date(post?.created_at),
           engagement: { 
-            likes: post?.likes || 0, 
-            comments: 0, 
+            likes: post?.likes_count || 0, 
+            comments: post?.comments_count || 0, 
             shares: 0 
           },
-          isLiked: false,
+          isLiked: post?.is_liked || false,
           achievements: [],
-          tags: []
+          tags: post?.tags || []
         })) || [];
         setPosts(formattedPosts);
       }
 
-      // Load friends from friendships table
-      const { data: friendshipsData, error: friendshipsError } = await supabase?.from('friendships')?.select(`
-          *,
-          friend:friend_id (
-            id,
-            name,
-            username,
-            points,
-            created_at,
-            user_profiles!inner (
-              full_name,
-              profile_picture_url
-            )
-          )
-        `)?.eq('user_id', user?.id)?.eq('status', 'accepted');
+      // Load friends using our amazing new friends API! 👥
+      const friendsResult = await socialAPI.getFriends(session);
 
-      if (friendshipsError) {
-        console.error('Friends loading error:', friendshipsError);
+      if (friendsResult.error) {
+        console.error('Friends loading error:', friendsResult.error);
       } else {
-        const formattedFriends = friendshipsData?.map(friendship => ({
-          id: friendship?.friend?.id,
-          name: friendship?.friend?.user_profiles?.[0]?.full_name || friendship?.friend?.name || 'Friend',
-          avatar: friendship?.friend?.user_profiles?.[0]?.profile_picture_url || null,
-          level: Math.floor((friendship?.friend?.points || 0) / 100) + 1,
-          isOnline: false,
-          lastActivity: 'Offline',
+        const formattedFriends = friendsResult.friends?.map(friendship => ({
+          id: friendship?.friend_id,
+          name: friendship?.friend_name || friendship?.friend_email?.split('@')[0] || 'Friend',
+          avatar: friendship?.friend_avatar || null,
+          level: Math.floor((friendship?.friend_points || 0) / 100) + 1,
+          isOnline: friendship?.last_active && new Date() - new Date(friendship.last_active) < 5 * 60 * 1000, // 5 min ago = online
+          lastActivity: friendship?.last_active ? new Date(friendship.last_active).toLocaleString() : 'Offline',
           mutualFriends: 0,
           streak: 0,
-          points: friendship?.friend?.points || 0
+          points: friendship?.friend_points || 0
         })) || [];
         setFriends(formattedFriends);
       }
 
-      // Load challenges from challenges table
-      const { data: challengesData, error: challengesError } = await supabase?.from('challenges')?.select(`
-          *,
-          creator:creator_id (
-            id,
-            name,
-            user_profiles!inner (
-              full_name,
-              profile_picture_url
-            )
-          )
-        `)?.order('created_at', { ascending: false })?.limit(10);
+      // Load leaderboard using our amazing leaderboard API! 🏆
+      const leaderboardResult = await socialAPI.getLeaderboard('friends', session);
 
-      if (challengesError) {
-        console.error('Challenges loading error:', challengesError);
+      if (leaderboardResult.error) {
+        console.error('Leaderboard loading error:', leaderboardResult.error);
       } else {
-        const formattedChallenges = challengesData?.map(challenge => ({
+        setLeaderboard(leaderboardResult.leaderboard || []);
+      }
+
+      // Load challenges using our amazing challenges API! 🎯
+      const challengesResult = await socialAPI.getChallenges(session);
+
+      if (challengesResult.error) {
+        console.error('Challenges loading error:', challengesResult.error);
+      } else {
+        const formattedChallenges = challengesResult.challenges?.map(challenge => ({
           id: challenge?.id,
           title: challenge?.title,
-          participants: [],
+          participants: [
+            {
+              name: challenge?.challenger_name || 'Challenger',
+              progress: challenge?.challenger_progress || 0
+            },
+            {
+              name: challenge?.challenged_name || 'Challenged',
+              progress: challenge?.challenged_progress || 0
+            }
+          ],
           endDate: challenge?.end_date ? new Date(challenge?.end_date) : new Date(),
-          prize: 'Community Recognition',
-          type: 'general',
-          description: challenge?.description || ''
+          prize: `${challenge?.points_reward || 50} Points`,
+          type: challenge?.challenge_type || 'general',
+          description: challenge?.description || '',
+          target: challenge?.target_value,
+          progress: Math.max(challenge?.challenger_progress || 0, challenge?.challenged_progress || 0)
         })) || [];
         setChallenges(formattedChallenges);
       }
 
-      // Calculate stats
+      // Calculate stats from our API results
       const weekAgo = new Date();
       weekAgo?.setDate(weekAgo?.getDate() - 7);
 
-      const postsThisWeek = postsData?.filter(post => 
+      const postsThisWeek = result.posts?.filter(post => 
         new Date(post?.created_at) >= weekAgo
       )?.length || 0;
 
       setStats({
-        totalFriends: friendshipsData?.length || 0,
-        activeChallenges: challengesData?.length || 0,
+        totalFriends: friendsResult.friends?.length || 0,
+        activeChallenges: challengesResult.challenges?.length || 0,
         postsThisWeek
       });
 
@@ -183,20 +198,20 @@ const CommunityHub = () => {
       const post = posts?.find(p => p?.id === postId);
       if (!post) return;
 
-      const newLikesCount = post?.isLiked 
-        ? post?.engagement?.likes - 1 
-        : post?.engagement?.likes + 1;
+      // Use our amazing like API! 👍
+      const result = await socialAPI.likePost(postId, session);
 
-      // Update in database
-      const { error } = await supabase?.from('social_posts')?.update({ likes: newLikesCount })?.eq('id', postId);
+      if (result.success) {
+        // Update local state based on API response
+        const newLikesCount = result.action === 'liked' 
+          ? post?.engagement?.likes + 1 
+          : post?.engagement?.likes - 1;
 
-      if (!error) {
-        // Update local state
         setPosts(prev => prev?.map(p => 
           p?.id === postId 
             ? { 
                 ...p, 
-                isLiked: !p?.isLiked,
+                isLiked: result.action === 'liked',
                 engagement: {
                   ...p?.engagement,
                   likes: newLikesCount
@@ -212,38 +227,42 @@ const CommunityHub = () => {
 
   const handleCreatePost = async (newPost) => {
     try {
-      if (!user?.id) return;
+      if (!user?.id) {
+        console.error('User not authenticated');
+        return;
+      }
 
-      const { data, error } = await supabase?.from('social_posts')?.insert({
-          user_id: user?.id,
-          content: newPost?.content,
-          media_url: newPost?.media?.[0]?.url || null
-        })?.select(`
-          *,
-          profiles:user_id (
-            id,
-            name,
-            username,
-            points,
-            user_profiles!inner (
-              full_name,
-              profile_picture_url
-            )
-          )
-        `)?.single();
+      console.log('Creating post with data:', newPost);
 
-      if (!error && data) {
+      // Use our amazing new social API helper! 🚀
+      const result = await socialAPI.createPost({
+        content: newPost?.content,
+        media_url: newPost?.media?.[0]?.url || null,
+        post_type: newPost?.type || 'progress',
+        tags: newPost?.tags || [],
+        visibility: 'friends'
+      }, session);
+
+      if (result.error) {
+        console.error('Post creation error:', result.error);
+        alert(result.error || 'Failed to create post. Please try again.');
+        return;
+      }
+
+      if (result.success && result.post) {
+        console.log('Post created successfully with +5 points! 🎉', result.post);
+        
         const formattedPost = {
-          id: data?.id,
+          id: result.post?.id,
           user: {
             id: user?.id,
-            name: userProfile?.full_name || 'You',
+            name: userProfile?.full_name || user?.email?.split('@')[0] || 'You',
             avatar: userProfile?.profile_picture_url || null,
             level: Math.floor((userProfile?.points || 0) / 100) + 1,
             isOnline: true
           },
           type: 'post',
-          content: data?.content || '',
+          content: result.post?.content || '',
           media: data?.media_url ? [{
             type: 'image',
             url: data?.media_url,
@@ -257,19 +276,81 @@ const CommunityHub = () => {
           },
           isLiked: false,
           achievements: [],
-          tags: []
+          tags: newPost?.tags || []
         };
 
         setPosts(prev => [formattedPost, ...prev]);
         setIsCreatePostModalOpen(false);
+        
+        // Refresh stats
+        setStats(prev => ({
+          ...prev,
+          postsThisWeek: prev.postsThisWeek + 1
+        }));
       }
     } catch (error) {
       console.error('Create post error:', error);
+      alert('Failed to create post. Please try again.');
     }
   };
 
   const handleStartChat = (user) => {
     setActiveChatUser(user);
+  };
+
+  const handleDeleteFriend = async (friendId) => {
+    try {
+      if (window.confirm('Are you sure you want to remove this friend?')) {
+        // Delete from database
+        const { error } = await supabase?.from('friendships')
+          ?.delete()
+          ?.eq('user_id', user?.id)
+          ?.eq('friend_id', friendId);
+        
+        if (!error) {
+          // Remove from local state
+          setFriends(prev => prev?.filter(f => f?.id !== friendId));
+          setStats(prev => ({
+            ...prev,
+            totalFriends: Math.max(0, prev.totalFriends - 1)
+          }));
+        } else {
+          console.error('Delete friend error:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Delete friend error:', error);
+    }
+  };
+
+  const handleToggleFriend = async (friendId, action) => {
+    try {
+      if (action === 'add') {
+        // Add mock friend for demo
+        const newFriend = {
+          id: friendId,
+          name: `Suggested Friend ${friendId.split('-')[1]}`,
+          avatar: `https://images.unsplash.com/photo-1500000000${friendId.split('-')[1]}?w=400&h=400&fit=crop&crop=face`,
+          level: Math.floor(Math.random() * 10) + 1,
+          isOnline: Math.random() > 0.5,
+          lastActivity: Math.random() > 0.5 ? 'Online' : '2 hours ago',
+          mutualFriends: Math.floor(Math.random() * 5),
+          streak: Math.floor(Math.random() * 30),
+          points: Math.floor(Math.random() * 10000)
+        };
+        
+        setFriends(prev => [...prev, newFriend]);
+        setStats(prev => ({
+          ...prev,
+          totalFriends: prev.totalFriends + 1
+        }));
+      } else if (action === 'remove') {
+        // Just ignore the suggestion
+        console.log('Ignored friend suggestion:', friendId);
+      }
+    } catch (error) {
+      console.error('Toggle friend error:', error);
+    }
   };
 
   if (loading) {
@@ -298,8 +379,29 @@ const CommunityHub = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <div className="flex items-center justify-center min-h-[400px]">
               <div className="text-center">
-                <p className="text-red-500 mb-4">{error}</p>
-                <Button onClick={loadCommunityData}>Try Again</Button>
+                <div className="mb-6">
+                  <Icon name="Users" className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold text-gray-800 mb-2">Community Hub</h2>
+                  <p className="text-red-500 mb-4">{error}</p>
+                </div>
+                
+                {error?.includes('log in') ? (
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={() => window.location.href = '/user-login'} 
+                      className="bg-primary text-white px-6 py-2 rounded-lg"
+                    >
+                      Sign In to Continue
+                    </Button>
+                    <p className="text-sm text-gray-600">
+                      Join our fitness community to share progress, challenge friends, and climb the leaderboards! 🚀
+                    </p>
+                  </div>
+                ) : (
+                  <Button onClick={loadCommunityData} className="bg-blue-500 text-white px-4 py-2 rounded">
+                    Try Again
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -371,11 +473,13 @@ const CommunityHub = () => {
                 <FriendsList 
                   friends={friends}
                   onStartChat={handleStartChat}
+                  onDeleteFriend={handleDeleteFriend}
+                  onToggleFriend={handleToggleFriend}
                 />
               )}
               
               {activeTab === 'leaderboards' && (
-                <Leaderboards friends={friends} />
+                <Leaderboards friends={friends} leaderboard={leaderboard} />
               )}
               
               {activeTab === 'challenges' && (

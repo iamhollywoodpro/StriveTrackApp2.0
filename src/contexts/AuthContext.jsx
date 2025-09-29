@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isAdminUser } from '../lib/supabase';
+import { apiGet, apiSend } from '../lib/api';
 
 const AuthContext = createContext({})
 
@@ -23,11 +24,20 @@ export const AuthProvider = ({ children }) => {
       if (!userId) return
       setProfileLoading(true)
       try {
-        // Fix: Use 'profiles' table instead of 'user_profiles'
-        const { data, error } = await supabase?.from('profiles')?.select('*')?.eq('id', userId)?.single()
-        
-        if (!error && data) {
-          setUserProfile(data)
+        // Use Worker API to load profile
+        const profile = await apiGet('/profile', supabase)
+        if (profile) {
+          // Transform Worker profile format to match expected format
+          const transformedProfile = {
+            id: userId,
+            full_name: profile.name || '',
+            bio: profile.bio || '',
+            height: profile.targets?.height || '',
+            weight: profile.targets?.weight || '',
+            goals: profile.targets?.goals || '',
+            profile_picture_path: null // Will be set separately if needed
+          }
+          setUserProfile(transformedProfile)
         }
       } catch (error) {
         console.error('Profile load error:', error)
@@ -114,14 +124,33 @@ export const AuthProvider = ({ children }) => {
     if (!user?.id) return { error: new Error('No user logged in') }
     
     try {
-      // Fix: Use 'profiles' table instead of 'user_profiles'
-      const { data, error } = await supabase?.from('profiles')?.update(updates)?.eq('id', user?.id)?.select()?.single()
-
-      if (!error && data) {
-        setUserProfile(data)
+      // Use Worker API to update profile
+      const profileData = {
+        name: updates.full_name,
+        bio: updates.bio,
+        targets: {
+          height: updates.height,
+          weight: updates.weight,
+          goals: updates.goals
+        }
+      }
+      
+      const result = await apiSend('PUT', '/profile', profileData, supabase)
+      
+      if (result.success) {
+        // Update local profile state
+        const updatedProfile = {
+          ...userProfile,
+          full_name: updates.full_name,
+          bio: updates.bio,
+          height: updates.height,
+          weight: updates.weight,
+          goals: updates.goals
+        }
+        setUserProfile(updatedProfile)
       }
 
-      return { data, error }
+      return { data: result, error: null }
     } catch (error) {
       console.error('Profile update error:', error)
       return { data: null, error }

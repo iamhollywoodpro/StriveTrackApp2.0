@@ -39,23 +39,23 @@ const ActivityTimeline = ({ activities }) => {
         <h3 className="text-lg font-semibold text-foreground">Recent Activity</h3>
         <Icon name="Clock" size={20} className="text-muted-foreground" />
       </div>
-      <div className="space-y-4 max-h-96 overflow-y-auto">
+      <div className="space-y-3 max-h-80 overflow-y-auto">
         {activities?.map((activity) => (
-          <div key={activity?.id} className="flex items-start space-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${getActivityColor(activity?.type)}`}>
-              <Icon name={getActivityIcon(activity?.type)} size={18} strokeWidth={2.5} />
+          <div key={activity?.id} className="flex items-start space-x-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${getActivityColor(activity?.type)}`}>
+              <Icon name={getActivityIcon(activity?.type)} size={16} strokeWidth={2.5} />
             </div>
             
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-foreground truncate">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium text-foreground line-clamp-1 flex-1">
                   {activity?.title}
                 </p>
-                <span className="text-xs text-muted-foreground flex-shrink-0 ml-2">
+                <span className="text-xs text-muted-foreground flex-shrink-0">
                   {formatTimeAgo(activity?.timestamp)}
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                 {activity?.description}
               </p>
               

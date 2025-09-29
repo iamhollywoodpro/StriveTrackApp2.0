@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabase';
+import { uploadToR2, validateFile, verifyUpload } from '../../../lib/simpleUpload';
 
 const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
   const { user } = useAuth();
@@ -10,6 +11,8 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
   const [progressType, setProgressType] = useState('progress');
   const [privacyLevel, setPrivacyLevel] = useState('private');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadStatus, setUploadStatus] = useState('');
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
 
@@ -24,36 +27,27 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
   ];
   const ALLOWED_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES];
 
-  const validateFile = (file) => {
-    if (!file) {
-      throw new Error('Please select a file');
-    }
-
-    if (file?.size > MAX_FILE_SIZE) {
-      throw new Error('File size must be less than 50MB');
-    }
-
-    if (!ALLOWED_TYPES?.includes(file?.type)) {
-      throw new Error('Only image files (JPEG, PNG, WebP, GIF) and video files (MP4, MOV, AVI, WebM, 3GP, FLV) are allowed');
-    }
-
-    return true;
-  };
+  // File validation is now handled by the bulletproof upload system
 
   const handleFileSelect = (event) => {
     const file = event?.target?.files?.[0];
     
     try {
       if (file) {
+        // Use bulletproof validation
         validateFile(file);
         setSelectedFile(file);
         setPreviewUrl(URL.createObjectURL(file));
         setError('');
+        setUploadProgress(0);
+        setUploadStatus('');
       }
     } catch (err) {
       setError(err?.message);
       setSelectedFile(null);
       setPreviewUrl('');
+      setUploadProgress(0);
+      setUploadStatus('');
       if (event?.target) {
         event.target.value = '';
       }
@@ -67,64 +61,83 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
     }
 
     try {
-      validateFile(selectedFile);
       setUploading(true);
       setError('');
+      setUploadProgress(0);
+      setUploadStatus('Preparing upload...');
 
       if (!user?.id) {
         throw new Error('You must be logged in to upload photos');
       }
 
-      // Create a unique filename with timestamp
-      const timestamp = new Date()?.getTime();
-      const fileName = `${user?.id}/${timestamp}-${selectedFile?.name?.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      // Progress callback for upload status
+      const progressCallback = (progress, status) => {
+        setUploadProgress(progress);
+        setUploadStatus(status || `Uploading... ${Math.round(progress)}%`);
+      };
 
-      // Step 1: Upload file to Cloudflare R2 via Worker proxy
-      // Worker expects: Authorization: Bearer <supabase access token>
+      // Use simple, reliable upload system
+      const result = await uploadToR2(selectedFile, supabase, progressCallback);
+      
+      if (!result?.key) {
+        throw new Error('Upload failed - no file key returned');
+      }
+
+      setUploadStatus('Verifying upload...');
+      
+      // Verify the upload was successful
+      const isVerified = await verifyUpload(result.key, supabase);
+      if (!isVerified) {
+        throw new Error('Upload verification failed. Please try again.');
+      }
+
+      // Store progress type metadata in localStorage to persist across sessions
+      const mediaMetadata = JSON.parse(localStorage.getItem('strivetrack-media-metadata') || '{}');
+      mediaMetadata[result.key] = {
+        type: progressType,
+        privacy: privacyLevel,
+        description: description?.trim() || '',
+        uploadedAt: new Date().toISOString(),
+        filename: selectedFile?.name,
+        mediaType: selectedFile?.type?.startsWith('video/') ? 'video' : 'image',
+        contentType: selectedFile?.type,
+        uploadMethod: result.uploadMethod,
+        verified: true
+      };
+      localStorage.setItem('strivetrack-media-metadata', JSON.stringify(mediaMetadata));
+
+      // Get session token for building the view URL
       const session = await supabase?.auth?.getSession();
       const accessToken = session?.data?.session?.access_token;
-      if (!accessToken) throw new Error('Missing auth token');
-
+      
+      // Build the media view URL
       const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+      const mediaUrl = `${API_BASE}/media/${encodeURIComponent(result.key)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`;
 
-      const r2UploadResp = await fetch(`${API_BASE}/upload`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': selectedFile?.type || 'application/octet-stream',
-          'x-file-name': selectedFile?.name || 'upload.bin'
-        },
-        body: selectedFile
-      });
-
-      if (!r2UploadResp.ok) {
-        const msg = await r2UploadResp.text();
-        throw new Error(`Upload failed: ${msg}`);
-      }
-      const { key } = await r2UploadResp.json();
-
-      // Step 2: Determine media type based on file type
+      // Determine media type based on file type
       const isVideo = selectedFile?.type?.startsWith('video/');
       const mediaType = isVideo ? 'video' : 'image';
 
-      // Step 3: Worker already writes a media row into D1.
-      // Build a proxied view URL from Worker (no signed URL needed)
-      const API_BASE_2 = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
-      const r2ViewUrl = `${API_BASE_2}/media/${encodeURIComponent(key)}?token=${encodeURIComponent(accessToken)}`;
-
-      // Step 4: Notify parent with minimal card data; caller will refresh list from /api/media
+      // Create the photo object for the parent component
       const newPhoto = {
-        key,
-        imageUrl: r2ViewUrl,
+        id: result.key,
+        key: result.key,
+        imageUrl: mediaUrl,
         type: progressType,
         privacy: privacyLevel,
         notes: description?.trim() || selectedFile?.name,
         date: new Date().toISOString(),
         points: 25,
         filename: selectedFile?.name,
-        mediaType
+        mediaType,
+        contentType: selectedFile?.type,
+        uploadMethod: result.uploadMethod,
+        verified: true
       };
 
+      setUploadStatus('Upload successful!');
+      
+      // Notify parent component
       onUpload?.(newPhoto);
 
       // Reset form and close modal
@@ -134,10 +147,15 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       setProgressType('progress');
       setPrivacyLevel('private');
       setError('');
+      setUploadProgress(0);
+      setUploadStatus('');
       onClose();
 
     } catch (error) {
+      console.error('Upload error:', error);
       setError(error?.message || 'Failed to upload media. Please try again.');
+      setUploadProgress(0);
+      setUploadStatus('Upload failed');
     } finally {
       setUploading(false);
     }
@@ -161,7 +179,24 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
         
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
+            <div className="font-medium">Upload Failed</div>
+            <div className="text-sm mt-1">{error}</div>
+          </div>
+        )}
+        
+        {uploading && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium text-blue-900">Uploading Media</span>
+              <span className="text-sm text-blue-600">{Math.round(uploadProgress)}%</span>
+            </div>
+            <div className="w-full bg-blue-100 rounded-full h-2">
+              <div 
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+            <div className="text-xs text-blue-600 mt-1">{uploadStatus}</div>
           </div>
         )}
         
@@ -194,7 +229,6 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
               disabled={uploading}
             >
               <option value="before">Before</option>
-              <option value="during">During</option>
               <option value="after">After</option>
               <option value="progress">Progress</option>
             </select>

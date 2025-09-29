@@ -33,36 +33,37 @@ const AchievementsBadges = ({ achievements }) => {
           {achievements?.length} earned
         </div>
       </div>
-      <div className="space-y-4">
-        {achievements?.slice(0, 5)?.map((achievement) => (
-          <div key={achievement?.id} className="flex items-center space-x-4 p-3 rounded-lg hover:bg-muted/50 transition-colors">
-            <div className={`w-12 h-12 bg-gradient-to-br ${getBadgeColor(achievement?.rarity)} rounded-full flex items-center justify-center shadow-elevation-1`}>
-              <Icon name={getIconName(achievement?.category)} size={20} color="white" strokeWidth={2.5} />
+      <div className="space-y-3">
+        {achievements?.slice(0, 4)?.map((achievement) => (
+          <div key={achievement?.id} className="flex items-center space-x-3 p-2.5 rounded-lg hover:bg-muted/50 transition-colors">
+            <div className={`w-10 h-10 bg-gradient-to-br ${getBadgeColor(achievement?.rarity)} rounded-full flex items-center justify-center shadow-elevation-1 flex-shrink-0`}>
+              <Icon name={getIconName(achievement?.category)} size={18} color="white" strokeWidth={2.5} />
             </div>
             
             <div className="flex-1 min-w-0">
-              <h4 className="text-sm font-medium text-foreground truncate">
-                {achievement?.title}
-              </h4>
-              <p className="text-xs text-muted-foreground mt-1">
+              <div className="flex items-start justify-between gap-2">
+                <h4 className="text-sm font-medium text-foreground line-clamp-1 flex-1">
+                  {achievement?.title}
+                </h4>
+                <div className="text-xs text-muted-foreground flex-shrink-0">
+                  {new Date(achievement.earnedAt)?.toLocaleDateString()}
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
                 {achievement?.description}
               </p>
-              <div className="flex items-center space-x-2 mt-2">
-                <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+              <div className="flex items-center justify-between mt-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                   achievement?.rarity === 'legendary' ? 'bg-yellow-100 text-yellow-800' :
                   achievement?.rarity === 'epic' ? 'bg-purple-100 text-purple-800' :
                   achievement?.rarity === 'rare'? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
                 }`}>
                   {achievement?.rarity}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  +{achievement?.points} points
+                <span className="text-xs text-muted-foreground font-medium">
+                  +{achievement?.points} XP
                 </span>
               </div>
-            </div>
-            
-            <div className="text-xs text-muted-foreground">
-              {new Date(achievement.earnedAt)?.toLocaleDateString()}
             </div>
           </div>
         ))}

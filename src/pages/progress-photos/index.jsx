@@ -42,18 +42,24 @@ const ProgressPhotos = () => {
       const token = sessionData?.session?.access_token || '';
       const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 
-      const data = items.map((m) => ({
-        id: m.key,
-        imageUrl: `${API_BASE}/media/${encodeURIComponent(m.key)}${token ? `?token=${encodeURIComponent(token)}` : ''}`,
-        type: 'progress',
-        privacy: 'private',
-        notes: m.key.split('/').pop(),
-        date: new Date(m.createdAt).toISOString(),
-        points: 25,
-        filename: m.key.split('/').pop(),
-        mediaType: (m.contentType || '').startsWith('video/') ? 'video' : 'image',
-        file_size: 0
-      }));
+      // Get stored metadata for progress types and other info
+      const mediaMetadata = JSON.parse(localStorage.getItem('strivetrack-media-metadata') || '{}');
+
+      const data = items.map((m) => {
+        const metadata = mediaMetadata[m.key] || {};
+        return {
+          id: m.key,
+          imageUrl: `${API_BASE}/media/${encodeURIComponent(m.key)}${token ? `?token=${encodeURIComponent(token)}` : ''}`,
+          type: metadata.type || 'progress', // Use stored type or default to 'progress'
+          privacy: metadata.privacy || 'private',
+          notes: metadata.description || metadata.filename || m.key.split('/').pop(),
+          date: metadata.uploadedAt || new Date(m.createdAt).toISOString(),
+          points: 25,
+          filename: metadata.filename || m.key.split('/').pop(),
+          mediaType: metadata.mediaType || ((m.contentType || '').startsWith('video/') ? 'video' : 'image'),
+          file_size: 0
+        };
+      });
 
       setPhotos(data);
     } catch (error) {

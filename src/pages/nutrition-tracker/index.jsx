@@ -8,14 +8,18 @@ import Button from '../../components/ui/Button';
 import MacroRing from './components/MacroRing';
 import WaterIntakeTracker from './components/WaterIntakeTracker';
 import MealSection from './components/MealSection';
-import FoodSearchModal from './components/FoodSearchModal';
+import EnhancedFoodSearchModal from './components/EnhancedFoodSearchModal';
+import RecipeLibrary from './components/RecipeLibrary';
 import NutritionInsights from './components/NutritionInsights';
+import QuickAddDropdown from './components/QuickAddDropdown';
+import { searchFoods, getFoodsByCategory, getPopularFoods, calculateNutrition, getRecipeSuggestions } from '../../data/enhancedFoodDatabase';
 
 const NutritionTracker = () => {
   const { user } = useAuth();
   
   const [activeTab, setActiveTab] = useState('today');
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
+  const [isRecipeLibraryOpen, setIsRecipeLibraryOpen] = useState(false);
   const [selectedMealType, setSelectedMealType] = useState('');
   const [waterIntake, setWaterIntake] = useState(0);
   const [meals, setMeals] = useState({
@@ -49,16 +53,39 @@ const NutritionTracker = () => {
       entries?.forEach(entry => {
         const mealType = (entry?.meal_type || 'snacks')?.toLowerCase();
         if (mealData?.[mealType]) {
-          mealData?.[mealType]?.foods?.push({
+          // Parse addons if they exist (backward compatibility)
+          let addons = [];
+          try {
+            if (entry?.addons && typeof entry.addons === 'string') {
+              addons = JSON.parse(entry.addons);
+            } else if (Array.isArray(entry?.addons)) {
+              addons = entry.addons;
+            }
+          } catch (e) {
+            console.warn('Failed to parse addons for entry:', entry?.id, e);
+            addons = [];
+          }
+
+          // Build food object with backward compatibility
+          const foodItem = {
             id: entry?.id,
-            name: entry?.meal_name,
-            image: '/assets/images/no_image.png',
-            portion: '1 serving',
-            calories: entry?.calories || 0,
-            protein: entry?.protein || 0,
-            carbs: entry?.carbs || 0,
-            fat: entry?.fat || 0
-          });
+            name: entry?.meal_name || 'Unknown Food',
+            image: entry?.food_image || entry?.image || null,
+            portion: entry?.serving_size || '1 serving',
+            calories: Math.round(Number(entry?.calories || 0)),
+            protein: Math.round(Number(entry?.protein || 0) * 10) / 10,
+            carbs: Math.round(Number(entry?.carbs || 0) * 10) / 10,
+            fat: Math.round(Number(entry?.fat || 0) * 10) / 10,
+            addons: addons
+          };
+
+          // Add optional fields if they exist
+          if (entry?.fiber !== undefined) foodItem.fiber = Math.round(Number(entry.fiber || 0) * 10) / 10;
+          if (entry?.sugar !== undefined) foodItem.sugar = Math.round(Number(entry.sugar || 0) * 10) / 10;
+          if (entry?.category) foodItem.category = entry.category;
+          if (entry?.food_id) foodItem.foodId = entry.food_id;
+
+          mealData?.[mealType]?.foods?.push(foodItem);
         }
       });
 
@@ -106,42 +133,92 @@ const NutritionTracker = () => {
     setIsSearchModalOpen(true);
   };
 
-  const handleFoodAdded = async (mealType, food) => {
+  const handleAddRecipe = (mealType) => {
+    setSelectedMealType(mealType);
+    setIsRecipeLibraryOpen(true);
+  };
+
+  const handleRecipeAdded = async (mealType, recipe) => {
     if (!user?.id) return;
 
     try {
       await apiSend('POST', '/nutrition', {
-        meal_name: food?.name,
+        meal_name: recipe?.name,
         meal_type: mealType?.toLowerCase(),
-        calories: food?.calories || 0,
-        protein: food?.protein || 0,
-        carbs: food?.carbs || 0,
-        fat: food?.fat || 0,
+        calories: recipe?.calories || 0,
+        protein: recipe?.protein || 0,
+        carbs: recipe?.carbs || 0,
+        fat: recipe?.fat || 0,
         date: new Date()?.toISOString()?.split('T')?.[0]
       }, supabase);
 
       // Refresh nutrition data
       fetchNutritionData();
     } catch (error) {
-      console.error('Error adding food:', error);
-      alert(error?.message || (error?.response?.error) || 'Failed to add food');
+      console.error('Error adding recipe:', error);
+      alert(error?.message || (error?.response?.error) || 'Failed to add recipe');
     }
   };
 
-  const handleRemoveFood = async (mealType, foodId) => {
+  const handleFoodAdded = async (mealType, food) => {
+    if (!user?.id) return;
+
+    try {
+      console.log('🍔 Adding food:', food);
+      
+      // Send comprehensive food data with fallbacks for backward compatibility
+      const foodData = {
+        meal_name: food?.name || 'Unknown Food',
+        meal_type: (mealType || 'snacks')?.toLowerCase(),
+        calories: Math.round(Number(food?.calories || 0)),
+        protein: Math.round(Number(food?.protein || 0) * 10) / 10,
+        carbs: Math.round(Number(food?.carbs || 0) * 10) / 10,
+        fat: Math.round(Number(food?.fat || 0) * 10) / 10,
+        date: new Date()?.toISOString()?.split('T')?.[0]
+      };
+
+      // Add enhanced fields only if they exist (backward compatibility)
+      if (food?.fiber !== undefined) foodData.fiber = Math.round(Number(food.fiber || 0) * 10) / 10;
+      if (food?.sugar !== undefined) foodData.sugar = Math.round(Number(food.sugar || 0) * 10) / 10;
+      if (food?.servingSize || food?.portion) foodData.serving_size = food.servingSize || food.portion || '1 serving';
+      if (food?.image) foodData.food_image = food.image;
+      if (food?.foodId || food?.id) foodData.food_id = food.foodId || food.id;
+      if (food?.category) foodData.category = food.category;
+      if (food?.addons && food.addons.length > 0) foodData.addons = JSON.stringify(food.addons);
+
+      console.log('📤 Sending food data:', foodData);
+
+      await apiSend('POST', '/nutrition', foodData, supabase);
+
+      console.log('✅ Food added successfully');
+      
+      // Refresh nutrition data
+      fetchNutritionData();
+    } catch (error) {
+      console.error('❌ Error adding food:', error);
+      
+      // Better error messaging
+      let errorMessage = 'Failed to add food. ';
+      if (error?.message?.includes('column')) {
+        errorMessage += 'Database schema mismatch - please refresh the page and try again.';
+      } else if (error?.message?.includes('Unauthorized')) {
+        errorMessage += 'Please log in again.';
+      } else {
+        errorMessage += error?.message || error?.response?.error || 'Unknown error occurred.';
+      }
+      
+      alert(errorMessage);
+    }
+  };
+
+  const handleRemoveFood = async (foodId) => {
     if (!user?.id) return;
 
     try {
       await apiSend('DELETE', `/nutrition/${foodId}`, null, supabase);
 
-      // Remove from local state
-      setMeals(prev => ({
-        ...prev,
-        [mealType?.toLowerCase()]: {
-          ...prev?.[mealType?.toLowerCase()],
-          foods: prev?.[mealType?.toLowerCase()]?.foods?.filter(food => food?.id !== foodId)
-        }
-      }));
+      // Refresh the data to update all meal sections
+      await fetchNutritionData();
     } catch (error) {
       console.error('Error removing food:', error);
       alert(error?.message || (error?.response?.error) || 'Failed to remove food');
@@ -189,14 +266,7 @@ const NutritionTracker = () => {
                 </p>
               </div>
               <div className="hidden md:block">
-                <Button
-                  variant="default"
-                  onClick={() => handleAddFood('Quick Add')}
-                  iconName="Plus"
-                  iconPosition="left"
-                >
-                  Quick Add Food
-                </Button>
+                <QuickAddDropdown onSelectMeal={handleAddFood} />
               </div>
             </div>
           </div>
@@ -307,21 +377,15 @@ const NutritionTracker = () => {
                     key={mealType}
                     meal={meal}
                     onAddFood={() => handleAddFood(mealType)}
-                    onRemoveFood={(foodId) => handleRemoveFood(mealType, foodId)}
+                    onAddRecipe={() => handleAddRecipe(mealType)}
+                    onRemoveFood={handleRemoveFood}
                   />
                 ))}
               </div>
 
               {/* Quick Actions - Mobile */}
               <div className="md:hidden fixed bottom-20 right-4 z-40">
-                <Button
-                  variant="default"
-                  size="icon"
-                  onClick={() => handleAddFood('Quick Add')}
-                  className="w-14 h-14 rounded-full shadow-elevation-2"
-                >
-                  <Icon name="Plus" size={24} />
-                </Button>
+                <QuickAddDropdown onSelectMeal={handleAddFood} />
               </div>
             </div>
           ) : (
@@ -330,10 +394,18 @@ const NutritionTracker = () => {
         </div>
       </main>
       {/* Food Search Modal */}
-      <FoodSearchModal
+      <EnhancedFoodSearchModal
         isOpen={isSearchModalOpen}
         onClose={() => setIsSearchModalOpen(false)}
         onAddFood={handleFoodAdded}
+        mealType={selectedMealType}
+      />
+      
+      {/* Recipe Library Modal */}
+      <RecipeLibrary
+        isOpen={isRecipeLibraryOpen}
+        onClose={() => setIsRecipeLibraryOpen(false)}
+        onAddRecipe={handleRecipeAdded}
         mealType={selectedMealType}
       />
     </div>
