@@ -114,23 +114,24 @@ const HabitGoalTracker = () => {
     }
   };
 
-  // Add missing handleToggleHabit function with proper completion tracking
-  const handleToggleHabit = async (habitId, completed) => {
+  // Enhanced handleToggleHabit function with date parameter for retroactive tracking
+  const handleToggleHabit = async (habitId, completed, dateStr = null) => {
     if (!user?.id) return;
 
     try {
-      const today = new Date();
-      const dateStr = today?.toISOString()?.split('T')?.[0];
+      // Use provided date or default to today
+      const targetDateStr = dateStr || new Date()?.toISOString()?.split('T')?.[0];
 
       // Toggle via Worker API (remove if already completed)
-      await apiSend('POST', `/habits/${habitId}/log`, { date: dateStr, remove: !!completed }, supabase);
+      await apiSend('POST', `/habits/${habitId}/log`, { date: targetDateStr, remove: !!completed }, supabase);
 
-      // Refresh habits list to show updated completion status
-      await fetchHabits();
+      // No need to refresh habits list since we use optimistic updates
+      // await fetchHabits(); // Commented out for speed
     } catch (error) {
       console.error('Error toggling habit:', error);
       const msg = error?.message || (error?.response?.error) || 'Failed to update habit';
       setError(msg);
+      throw error; // Re-throw so HabitCards can handle the error
     }
   };
 

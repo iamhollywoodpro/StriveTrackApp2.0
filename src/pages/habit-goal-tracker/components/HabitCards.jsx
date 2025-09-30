@@ -61,26 +61,38 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
     fetchCompletionData();
   }, [user?.id, habits]);
 
-  // Handle day click to toggle completion
-  const handleDayClick = async (habitId, dayIndex) => {
+  // Handle day click to toggle completion with 2-day retroactive limit
+  const handleDayClick = async (habitId, dateStr, dayIndex) => {
     if (!user?.id) return;
 
-    try {
-      const today = new Date();
-      const targetDate = new Date(today.getTime() - (dayIndex * 24 * 60 * 60 * 1000));
-      const dateStr = targetDate?.toISOString()?.split('T')?.[0];
-      const isCompleted = completionData?.[habitId]?.[dateStr] || false;
+    // Allow only today and 2 days back
+    if (dayIndex > 2) {
+      console.log('Cannot check off habits older than 2 days');
+      return;
+    }
 
+    // Optimistic UI update for speed
+    const isCompleted = completionData?.[habitId]?.[dateStr] || false;
+    const newCompletionData = {
+      ...completionData,
+      [habitId]: {
+        ...completionData[habitId],
+        [dateStr]: !isCompleted
+      }
+    };
+    setCompletionData(newCompletionData);
+
+    try {
+      // Send API request in background
       if (typeof onToggleHabit === 'function') {
-        await onToggleHabit(habitId, isCompleted);
+        await onToggleHabit(habitId, isCompleted, dateStr);
       } else {
         await apiSend('POST', `/habits/${habitId}/log`, { date: dateStr, remove: !!isCompleted }, supabase);
       }
-
-      // Refresh completion data
-      await fetchCompletionData();
     } catch (error) {
       console.error('Error toggling habit completion:', error);
+      // Revert optimistic update on error
+      setCompletionData(completionData);
     }
   };
 
@@ -97,7 +109,7 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
       const isToday = i === 0;
       
       days?.push({
-        index: i,
+        index: i, // 0 = today, 1 = yesterday, 2 = day before, etc.
         name: dayName,
         number: dayNumber,
         dateStr,
@@ -170,7 +182,8 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
             <div className="grid grid-cols-7 gap-2">
               {calendarDays?.map((day) => {
                 const isCompleted = completionData?.[habit?.id]?.[day?.dateStr] || false;
-                const isClickable = true; // All days are clickable for historical tracking
+                const isClickable = day?.index <= 2; // Only allow today and 2 days back
+                const isTooOld = day?.index > 2;
                 
                 return (
                   <div key={day?.dateStr} className="text-center">
@@ -178,24 +191,31 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
                       {day?.name}
                     </div>
                     <button
-                      onClick={() => isClickable && handleDayClick(habit?.id, day?.index)}
+                      onClick={() => isClickable && handleDayClick(habit?.id, day?.dateStr, day?.index)}
                       disabled={!isClickable}
                       className={`
-                        w-10 h-10 rounded-lg border text-sm font-medium transition-all duration-200 relative overflow-hidden
-                        ${isCompleted 
-                          ? 'bg-green-500 text-white border-green-500 shadow-sm' 
-                          : 'bg-background border-border hover:bg-muted hover:border-muted-foreground'
+                        w-10 h-10 rounded-lg border text-sm font-medium transition-all duration-150 relative overflow-hidden
+                        ${isTooOld
+                          ? 'bg-red-100 text-red-600 border-red-300 cursor-not-allowed'
+                          : isCompleted 
+                            ? 'bg-green-500 text-white border-green-500 shadow-sm' 
+                            : 'bg-background border-border hover:bg-muted hover:border-muted-foreground'
                         }
                         ${day?.isToday ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}
-                        ${isClickable ? 'cursor-pointer hover:scale-105' : 'cursor-not-allowed opacity-50'}
+                        ${isClickable ? 'cursor-pointer hover:scale-105' : 'cursor-not-allowed opacity-75'}
                       `}
                     >
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className={`text-xs font-bold ${isCompleted ? 'text-white/40' : ''}`}>
+                        <span className={`text-xs font-bold ${isCompleted ? 'text-white/40' : isTooOld ? 'text-red-600/60' : ''}`}>
                           {day?.number}
                         </span>
                       </div>
-                      {isCompleted && (
+                      {isTooOld && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Icon name="X" size={14} className="text-red-600" />
+                        </div>
+                      )}
+                      {isCompleted && !isTooOld && (
                         <div className="absolute inset-0 flex items-center justify-center">
                           <Icon name="Check" size={14} className="text-white drop-shadow-sm" />
                         </div>
