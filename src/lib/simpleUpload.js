@@ -70,6 +70,11 @@ export const uploadToR2 = async (file, supabase, progressCallback) => {
     throw new Error('Authentication required. Please log in again.');
   }
 
+  // Validate token format to prevent header issues
+  if (typeof token !== 'string' || token.includes('\n') || token.includes('\r')) {
+    throw new Error('Invalid authentication token format. Please log in again.');
+  }
+
   console.log('✅ Authentication valid');
   
   const uploadOperation = async () => {
@@ -77,11 +82,14 @@ export const uploadToR2 = async (file, supabase, progressCallback) => {
     
     console.log('📤 Uploading to:', `${API_BASE}/upload`);
     
+    // Safely encode filename for headers (remove non-Latin1 characters)
+    const safeFileName = file.name.replace(/[^\x00-\xFF]/g, '').trim() || 'uploaded_file';
+    
     const response = await fetch(`${API_BASE}/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'x-file-name': file.name,
+        'x-file-name': safeFileName,
         'Content-Type': file.type,
         'Content-Length': file.size.toString()
       },
