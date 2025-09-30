@@ -67,10 +67,10 @@ async function ensureTables(env: Bindings) {
     `CREATE TABLE IF NOT EXISTS media (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL,
-      key TEXT NOT NULL,
+      r2_key TEXT NOT NULL,
       content_type TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE(user_id, key)
+      UNIQUE(user_id, r2_key)
     );`,
     `CREATE TABLE IF NOT EXISTS nutrition_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1013,13 +1013,14 @@ app.get('/api/media/*', async (c) => {
 
   await ensureTables(c.env)
 
+  const userId = user.id
   const isAdmin = user.email === 'iamhollywoodpro@protonmail.com' || user.email === 'iamhollywoodpro@gmail.com'
   const ownerPrefix = `${userId}/`
   const isOwnerPath = objectKey.startsWith(ownerPrefix)
   let allowed = isOwnerPath || isAdmin
   if (!allowed) {
     try {
-      const row = await c.env.DB.prepare('SELECT 1 as ok FROM media WHERE user_id = ? AND key = ? LIMIT 1')
+      const row = await c.env.DB.prepare('SELECT 1 as ok FROM media WHERE user_id = ? AND r2_key = ? LIMIT 1')
         .bind(userId, objectKey).first<any>()
       if (row?.ok === 1) allowed = true
     } catch (_) {}
@@ -1052,13 +1053,14 @@ app.delete('/api/media/*', async (c) => {
 
   await ensureTables(c.env)
 
+  const userId = user.id
   const isAdmin = user.email === 'iamhollywoodpro@protonmail.com' || user.email === 'iamhollywoodpro@gmail.com'
   const ownerPrefix = `${userId}/`
   const isOwnerPath = objectKey.startsWith(ownerPrefix)
   let allowed = isOwnerPath || isAdmin
   if (!allowed) {
     try {
-      const row = await c.env.DB.prepare('SELECT 1 as ok FROM media WHERE user_id = ? AND key = ? LIMIT 1')
+      const row = await c.env.DB.prepare('SELECT 1 as ok FROM media WHERE user_id = ? AND r2_key = ? LIMIT 1')
         .bind(userId, objectKey).first<any>()
       if (row?.ok === 1) allowed = true
     } catch (_) {}
@@ -1066,7 +1068,7 @@ app.delete('/api/media/*', async (c) => {
   if (!allowed) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin)
 
   await c.env.R2_BUCKET.delete(objectKey)
-  try { await c.env.DB.prepare('DELETE FROM media WHERE user_id = ? AND key = ?').bind(userId, objectKey).run() } catch (_) {}
+  try { await c.env.DB.prepare('DELETE FROM media WHERE user_id = ? AND r2_key = ?').bind(userId, objectKey).run() } catch (_) {}
   return withCORS(new Response(JSON.stringify({ success: true }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin, c.req.raw)
 })
 
