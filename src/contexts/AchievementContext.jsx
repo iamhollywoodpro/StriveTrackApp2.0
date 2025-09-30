@@ -17,13 +17,17 @@ export const AchievementProvider = ({ children }) => {
   const ALL_ACHIEVEMENTS = getAllAchievements();
 
   const celebrateAchievement = useCallback((achievementCode, points = null) => {
+    console.log('🏆 CELEBRATING ACHIEVEMENT:', achievementCode);
     const achievementDef = ALL_ACHIEVEMENTS.find(def => def.id === achievementCode);
     if (achievementDef) {
+      console.log('✅ Achievement found, triggering confetti:', achievementDef);
       playConfetti({
         title: achievementDef.name,
         icon: achievementDef.icon,
         points: points || achievementDef.points
       });
+    } else {
+      console.log('❌ Achievement not found in database:', achievementCode);
     }
   }, [playConfetti, ALL_ACHIEVEMENTS]);
 

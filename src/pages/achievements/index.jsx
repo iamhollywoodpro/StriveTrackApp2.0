@@ -127,6 +127,16 @@ const Achievements = () => {
     }
   }, [user?.id]);
 
+  // Test confetti function (remove in production)
+  const testConfetti = () => {
+    console.log('Testing confetti manually...');
+    playConfetti({
+      title: 'Test Achievement',
+      icon: '🎯',
+      points: 25
+    });
+  };
+
   // Calculate stats data from real achievements
   const statsData = {
     totalEarned: achievementsData?.filter(achievement => achievement?.isEarned)?.length || 0,

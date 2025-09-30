@@ -3,18 +3,36 @@ import { useCallback } from 'react';
 
 export const useConfetti = () => {
   const playConfetti = useCallback((achievement) => {
+    console.log('🎉 CONFETTI TRIGGERED!', achievement);
+    
     // Create confetti elements
     const confettiContainer = document.createElement('div');
     confettiContainer.className = 'fixed inset-0 pointer-events-none z-50';
     document.body.appendChild(confettiContainer);
 
-    // Play achievement sound
+    // Play achievement sound with better browser compatibility
     try {
-      const audio = new Audio('data:audio/wav;base64,UklGRpQEAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YagEAABBhyEjq7sheRuUtCVNCmYkXYYnZv0nCvQnSQYoODon9N0nKsEo7ZcoGQop4QgqfgcqHsQqaxMrKx0rZiErUx4r+sAqXr0qds4qF+Qq+SUqOEoqTAoq7a8pNrQpLq4pkLUpQREqm8kpTzAq5qIpQPEmQzEpXg8p0YskvuYitw0jDAEj5/wiNdgi3sEi8KQj7tIh7K8hICwh+AQhqykj2tch9ych0R8hegQhgPEl+8cgJq4gg+Ag0QUhbf0f6eYfKCog5OQf4A8g4zUgkPsf1MYfC9YfxbYftg8gQqcfSVkgAPEfhd0f4pMgAoQfWbUf6T0g3i0g2S0g5iEgCfog8Q8g8rEf');
-      audio.volume = 0.3;
-      audio.play().catch(() => {}); // Ignore errors if sound fails
+      // Create a simple beep sound using Web Audio API
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.2);
+      
+      gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+      
+      console.log('🔊 Achievement sound played!');
     } catch (e) {
-      // Fallback silent
+      console.log('🔇 Sound failed, continuing with visual celebration');
     }
 
     // Create confetti particles

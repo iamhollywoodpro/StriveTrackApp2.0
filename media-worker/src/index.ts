@@ -222,7 +222,11 @@ async function ensureTables(env: Bindings) {
     `ALTER TABLE media ADD COLUMN flagged INTEGER DEFAULT 0`,
     `ALTER TABLE media ADD COLUMN flag_reason TEXT`,
     `ALTER TABLE media ADD COLUMN flagged_at DATETIME`,
-    `ALTER TABLE media ADD COLUMN flagged_by TEXT`
+    `ALTER TABLE media ADD COLUMN flagged_by TEXT`,
+    `ALTER TABLE media ADD COLUMN metadata TEXT`,
+    `ALTER TABLE media ADD COLUMN progress_type TEXT DEFAULT 'progress'`,
+    `ALTER TABLE media ADD COLUMN description TEXT`,
+    `ALTER TABLE media ADD COLUMN privacy_level TEXT DEFAULT 'private'`
   ]
 
   // Execute ALTER statements (ignore errors if columns already exist)
@@ -715,8 +719,8 @@ app.post('/api/upload', async (c) => {
   }
 
   // Only index in D1 after successful R2 upload
-  await c.env.DB.prepare('INSERT INTO media (user_id, r2_key, content_type, created_at) VALUES (?, ?, ?, ?)')
-    .bind(userId, key, contentType, Date.now())
+  await c.env.DB.prepare('INSERT INTO media (user_id, r2_key, content_type, progress_type, created_at) VALUES (?, ?, ?, ?, ?)')
+    .bind(userId, key, contentType, 'progress', Date.now())
     .run()
     
   // First upload achievement (+25)
@@ -1013,27 +1017,51 @@ app.get('/api/media', async (c) => {
 
   await ensureTables(c.env)
 
+  // Get existing D1 entries with metadata
+  const d1Media = await c.env.DB.prepare('SELECT r2_key, progress_type, description, privacy_level, metadata, created_at FROM media WHERE user_id = ?')
+    .bind(userId)
+    .all()
+  
+  const d1Map = new Map((d1Media.results || []).map((m: any) => [m.r2_key, m]))
+
   // Use R2 as source of truth, sync with D1
   const list = await c.env.R2_BUCKET.list({ prefix: `${userId}/`, limit: 1000 })
   const itemsR2 = (list.objects || []).map((o: any) => {
     const ct = o.httpMetadata?.contentType || guessContentTypeFromKey(o.key)
+    const d1Entry = d1Map.get(o.key)
+    
     return {
       key: o.key,
       contentType: ct,
       createdAt: (o.uploaded ? new Date(o.uploaded).toISOString() : undefined),
+      progressType: d1Entry?.progress_type || 'progress',
+      description: d1Entry?.description || '',
+      privacyLevel: d1Entry?.privacy_level || 'private',
+      metadata: d1Entry?.metadata ? JSON.parse(d1Entry.metadata || '{}') : {},
       url: `${new URL(c.req.url).origin}/api/media/${encodeURIComponent(o.key)}?token=${encodeURIComponent(token)}`
     }
   })
   
   // Sync D1 with R2 truth: remove stale entries and add missing ones
   try {
-    // Clear all existing D1 entries for this user
-    await c.env.DB.prepare('DELETE FROM media WHERE user_id = ?').bind(userId).run()
+    // Get R2 keys
+    const r2Keys = new Set((list.objects || []).map(o => o.key))
     
-    // Re-populate with actual R2 files
-    for (const it of itemsR2) {
-      await c.env.DB.prepare('INSERT INTO media (user_id, r2_key, content_type, created_at) VALUES (?, ?, ?, ?)')
-        .bind(userId, it.key, it.contentType || null, Date.now()).run()
+    // Remove D1 entries that don't exist in R2
+    for (const d1Entry of (d1Media.results || [])) {
+      if (!r2Keys.has(d1Entry.r2_key)) {
+        await c.env.DB.prepare('DELETE FROM media WHERE user_id = ? AND r2_key = ?')
+          .bind(userId, d1Entry.r2_key).run()
+      }
+    }
+    
+    // Add missing R2 entries to D1
+    for (const r2Object of (list.objects || [])) {
+      if (!d1Map.has(r2Object.key)) {
+        const ct = r2Object.httpMetadata?.contentType || guessContentTypeFromKey(r2Object.key)
+        await c.env.DB.prepare('INSERT INTO media (user_id, r2_key, content_type, progress_type, created_at) VALUES (?, ?, ?, ?, ?)')
+          .bind(userId, r2Object.key, ct || null, 'progress', Date.now()).run()
+      }
     }
   } catch (e) {
     // D1 sync error (non-critical)
@@ -1080,6 +1108,46 @@ app.get('/api/media/*', async (c) => {
   const headers = new Headers({ 'Content-Type': obj.httpMetadata?.contentType || guessed || 'application/octet-stream' })
   headers.set('Access-Control-Allow-Origin', origin)
   return withCORS(new Response(obj.body, { headers }), origin, c.req.raw)
+})
+
+// PUT /api/media/*/metadata - Update media metadata
+app.put('/api/media/*/metadata', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  const fullPath = c.req.path
+  let objectKey = fullPath.replace('/api/media/', '').replace('/metadata', '')
+  try { 
+    objectKey = decodeURIComponent(objectKey) 
+  } catch (_) {}
+  const auth = c.req.header('authorization') || ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
+
+  await ensureTables(c.env)
+
+  try {
+    const body = await c.req.json()
+    const { progressType, description, privacy } = body
+
+    // Update metadata in database
+    await c.env.DB.prepare('UPDATE media SET progress_type = ?, description = ?, privacy_level = ?, metadata = ? WHERE user_id = ? AND r2_key = ?')
+      .bind(
+        progressType || 'progress',
+        description || '',
+        privacy || 'private',
+        JSON.stringify(body),
+        userId,
+        objectKey
+      )
+      .run()
+
+    return jsonCORS(origin, { success: true })
+  } catch (e: any) {
+    return jsonCORS(origin, { error: e?.message || 'Failed to update metadata' }, 500)
+  }
 })
 
 // DELETE /api/media/*

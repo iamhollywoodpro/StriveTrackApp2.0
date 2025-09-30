@@ -12,36 +12,12 @@ const Leaderboards = ({ friends }) => {
     { id: 'goals', label: 'Goals', icon: 'Target' }
   ];
 
-  // Mock leaderboard data
+  // Real leaderboard data - empty until more users join
   const leaderboardData = {
-    points: [
-      { id: 1, name: 'Emma Rodriguez', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face', value: 3200, change: '+150', isUser: false },
-      { id: 2, name: 'Sarah Johnson', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face', value: 2850, change: '+200', isUser: false },
-      { id: 3, name: 'Alex Thompson', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face', value: 2450, change: '+75', isUser: true },
-      { id: 4, name: 'Mike Chen', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face', value: 2100, change: '+125', isUser: false },
-      { id: 5, name: 'Jessica Wang', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face', value: 1890, change: '+90', isUser: false }
-    ],
-    streaks: [
-      { id: 1, name: 'Emma Rodriguez', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face', value: 42, change: '+1', isUser: false },
-      { id: 2, name: 'Sarah Johnson', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face', value: 28, change: '+1', isUser: false },
-      { id: 3, name: 'Alex Thompson', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face', value: 21, change: '+1', isUser: true },
-      { id: 4, name: 'Mike Chen', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face', value: 15, change: '+1', isUser: false },
-      { id: 5, name: 'Jessica Wang', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face', value: 12, change: '+1', isUser: false }
-    ],
-    workouts: [
-      { id: 1, name: 'Mike Chen', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face', value: 156, change: '+8', isUser: false },
-      { id: 2, name: 'Emma Rodriguez', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face', value: 142, change: '+6', isUser: false },
-      { id: 3, name: 'Alex Thompson', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face', value: 127, change: '+4', isUser: true },
-      { id: 4, name: 'Sarah Johnson', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face', value: 118, change: '+5', isUser: false },
-      { id: 5, name: 'Jessica Wang', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face', value: 95, change: '+3', isUser: false }
-    ],
-    goals: [
-      { id: 1, name: 'Sarah Johnson', avatar: 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=400&h=400&fit=crop&crop=face', value: 8, change: '+2', isUser: false },
-      { id: 2, name: 'Emma Rodriguez', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400&h=400&fit=crop&crop=face', value: 6, change: '+1', isUser: false },
-      { id: 3, name: 'Alex Thompson', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face', value: 5, change: '+1', isUser: true },
-      { id: 4, name: 'Mike Chen', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face', value: 4, change: '+1', isUser: false },
-      { id: 5, name: 'Jessica Wang', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&h=400&fit=crop&crop=face', value: 3, change: '0', isUser: false }
-    ]
+    points: [],
+    streaks: [],
+    workouts: [],
+    goals: []
   };
 
   const getCurrentData = () => leaderboardData?.[activeLeaderboard] || [];
@@ -149,8 +125,20 @@ const Leaderboards = ({ friends }) => {
           </h3>
         </div>
         
-        <div className="divide-y divide-border">
-          {getCurrentData()?.map((user, index) => {
+        {getCurrentData()?.length === 0 ? (
+          // Empty state when no users in leaderboard
+          <div className="text-center py-12 px-6">
+            <div className="w-16 h-16 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Icon name="Trophy" size={24} className="text-muted-foreground" />
+            </div>
+            <h4 className="text-lg font-medium text-foreground mb-2">No rankings yet</h4>
+            <p className="text-muted-foreground mb-4">
+              Be the first to appear on the leaderboards! Complete habits, reach goals, and earn points.
+            </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {getCurrentData()?.map((user, index) => {
             const position = index + 1;
             
             return (
@@ -206,33 +194,22 @@ const Leaderboards = ({ friends }) => {
                 </div>
               </div>
             );
-          })}
-        </div>
+            })}
+          </div>
+        )}
       </div>
       {/* Weekly Summary */}
       <div className="bg-card rounded-xl p-6 border border-border">
         <h3 className="text-lg font-semibold text-foreground mb-4">
           This Week's Highlights
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center p-4 bg-yellow-50 rounded-lg">
-            <div className="text-2xl font-bold text-yellow-600">
-              Emma Rodriguez
-            </div>
-            <div className="text-sm text-yellow-700">Most Improved</div>
+        <div className="text-center py-8">
+          <div className="w-12 h-12 bg-muted/50 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Icon name="TrendingUp" size={20} className="text-muted-foreground" />
           </div>
-          <div className="text-center p-4 bg-green-50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">
-              5
-            </div>
-            <div className="text-sm text-green-700">New Records Set</div>
-          </div>
-          <div className="text-center p-4 bg-blue-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">
-              +28%
-            </div>
-            <div className="text-sm text-blue-700">Average Growth</div>
-          </div>
+          <p className="text-muted-foreground">
+            Weekly highlights will appear here as users become more active in the community.
+          </p>
         </div>
       </div>
     </div>

@@ -91,10 +91,9 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
         throw new Error('Upload verification failed. Please try again.');
       }
 
-      // Store progress type metadata in localStorage to persist across sessions
-      const mediaMetadata = JSON.parse(localStorage.getItem('strivetrack-media-metadata') || '{}');
-      mediaMetadata[result.key] = {
-        type: progressType,
+      // Save metadata to backend database (not just localStorage)
+      const metadata = {
+        progressType: progressType,
         privacy: privacyLevel,
         description: description?.trim() || '',
         uploadedAt: new Date().toISOString(),
@@ -104,6 +103,28 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
         uploadMethod: result.uploadMethod,
         verified: true
       };
+
+      // Save to backend
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+        
+        await fetch(`${API_BASE}/media/${encodeURIComponent(result.key)}/metadata`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(metadata)
+        });
+      } catch (metadataError) {
+        console.error('Failed to save metadata to backend:', metadataError);
+      }
+
+      // Also keep in localStorage as backup
+      const mediaMetadata = JSON.parse(localStorage.getItem('strivetrack-media-metadata') || '{}');
+      mediaMetadata[result.key] = metadata;
       localStorage.setItem('strivetrack-media-metadata', JSON.stringify(mediaMetadata));
 
       // Get session token for building the view URL
