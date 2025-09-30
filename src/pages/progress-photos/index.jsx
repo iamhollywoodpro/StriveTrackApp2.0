@@ -42,24 +42,20 @@ const ProgressPhotos = () => {
       const token = sessionData?.session?.access_token || '';
       const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 
-      // Get stored metadata for progress types and other info (fallback to localStorage)
-      const localMetadata = JSON.parse(localStorage.getItem('strivetrack-media-metadata') || '{}');
-
       const data = items.map((m) => {
-        // Prioritize backend metadata over localStorage
+        // Use only cloud-stored metadata from D1 database
         const backendMetadata = m.metadata || {};
-        const localMeta = localMetadata[m.key] || {};
         
         return {
           id: m.key,
           imageUrl: `${API_BASE}/media/${encodeURIComponent(m.key)}${token ? `?token=${encodeURIComponent(token)}` : ''}`,
-          type: m.progressType || backendMetadata.progressType || localMeta.type || 'progress',
-          privacy: m.privacyLevel || backendMetadata.privacy || localMeta.privacy || 'private',
-          notes: m.description || backendMetadata.description || localMeta.description || localMeta.filename || m.key.split('/').pop(),
-          date: backendMetadata.uploadedAt || localMeta.uploadedAt || new Date(m.createdAt).toISOString(),
+          type: m.progress_type || backendMetadata.progressType || 'progress',
+          privacy: m.privacy_level || backendMetadata.privacy || 'private',
+          notes: m.description || backendMetadata.description || m.key.split('/').pop(),
+          date: backendMetadata.uploadedAt || new Date(m.created_at).toISOString(),
           points: 25,
-          filename: backendMetadata.filename || localMeta.filename || m.key.split('/').pop(),
-          mediaType: backendMetadata.mediaType || localMeta.mediaType || ((m.contentType || '').startsWith('video/') ? 'video' : 'image'),
+          filename: backendMetadata.filename || m.key.split('/').pop(),
+          mediaType: backendMetadata.mediaType || ((m.content_type || '').startsWith('video/') ? 'video' : 'image'),
           file_size: 0
         };
       });

@@ -130,12 +130,9 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
         });
       } catch (metadataError) {
         console.error('Failed to save metadata to backend:', metadataError);
+        // Note: Metadata must be saved to backend D1 database, no localStorage fallback
+        throw new Error('Failed to save metadata to cloud storage. Upload cancelled.');
       }
-
-      // Also keep in localStorage as backup
-      const mediaMetadata = JSON.parse(localStorage.getItem('strivetrack-media-metadata') || '{}');
-      mediaMetadata[result.key] = metadata;
-      localStorage.setItem('strivetrack-media-metadata', JSON.stringify(mediaMetadata));
 
       // Get session token for building the view URL
       const session = await supabase?.auth?.getSession();
