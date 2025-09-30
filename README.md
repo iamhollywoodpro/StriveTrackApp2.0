@@ -9,7 +9,7 @@ Created by Hollywood (Self-employed Music Producer & Fresh Blendz Juice Bar Owne
 StriveTrack 2.0 is a revolutionary fitness tracking application that combines the power of Cloudflare's edge computing with a modern React SPA frontend. This isn't just another fitness app - it's your complete wellness companion featuring comprehensive nutrition databases, recipe libraries, workout templates, and intelligent progress tracking.
 
 **🔥 Live Production URLs:**
-- **Frontend (Pages):** https://strivetrackapp2-0.pages.dev
+- **Frontend (Pages):** https://e9976dea.strivetrack-app.pages.dev *(Production URL ready for strivetrackapp.com domain)*
 - **Backend API (Worker):** https://strivetrack-media-api.iamhollywoodpro.workers.dev
 - **Development URL:** https://3000-i8diwm964nb6ljbdespoj-6532622b.e2b.dev
 - **Health Check:** https://strivetrack-media-api.iamhollywoodpro.workers.dev/api/health
@@ -73,11 +73,13 @@ StriveTrack 2.0 is a revolutionary fitness tracking application that combines th
 - **Media Upload**: Upload and manage progress photos/videos with Worker API
 - **Profile Management**: Complete user profiles with bio, targets, and personal information
 
-### ✅ **Admin Dashboard** (Enterprise-Grade)
-- **User Management**: View all users and their profiles
-- **Media Management**: Browse, view, download, and delete user media files
+### ✅ **Admin Dashboard** (Enterprise-Grade - FULLY IMPLEMENTED)
+- **User Management**: View all users and their profiles with detailed information
+- **Media Management**: Browse, view, download, delete, and flag user media files
+- **Flagging System**: Admin can flag inappropriate content with reason tracking
 - **RBAC Security**: Server-side admin verification with email allowlist
 - **Admin Access**: Only `iamhollywoodpro@protonmail.com` and `iamhollywoodpro@gmail.com`
+- **Visual Indicators**: Flagged content highlighted with red borders and badges
 
 ### ✅ **Data Storage** (Edge-First Architecture)
 - **Cloudflare D1**: SQLite database for structured data (goals, habits, nutrition, achievements)
@@ -188,9 +190,10 @@ DELETE /api/media/*                   → Delete media file
 ```
 GET    /api/admin/users               → List all users
 GET    /api/admin/user/:id/profile    → Get user profile (admin)
-GET    /api/admin/user/:id/media     → List user media (admin)
-GET    /api/admin/media/*            → Stream any media (admin)
-DELETE /api/admin/media/*            → Delete any media (admin)
+GET    /api/admin/user/:id/media      → List user media with flag status (admin)
+GET    /api/admin/media/*             → Stream any media (admin)
+DELETE /api/admin/media/*             → Delete any media (admin)
+POST   /api/admin/media/*/flag        → Flag media with reason (admin)
 ```
 
 ## 🎯 Achievement System
@@ -272,8 +275,9 @@ npm run deploy
 ```bash
 cd webapp
 npm run build
-npx wrangler pages deploy dist --project-name strivetrackapp2-0
-# Deploys to: https://strivetrackapp2-0.pages.dev
+npx wrangler pages deploy dist --project-name strivetrack-app
+# Deploys to: https://e9976dea.strivetrack-app.pages.dev
+# Ready for custom domain: strivetrackapp.com
 ```
 
 ### **Development Server**

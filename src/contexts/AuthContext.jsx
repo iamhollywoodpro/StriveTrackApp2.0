@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isAdminUser } from '../lib/supabase';
 import { apiGet, apiSend } from '../lib/api';
 
+console.log('🚀 AuthContext: Using NEW Cloudflare Auth System - NO MORE SUPABASE!');
+
 const AuthContext = createContext({})
 
 export const useAuth = () => {
@@ -69,16 +71,30 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Get initial session
-    supabase?.auth?.getSession()?.then(({ data: { session } }) => {
+    supabase?.auth?.getSession()?.then((result) => {
+      const session = result?.data?.session;
       authStateHandlers?.onChange(null, session)
-    })
+    }).catch((error) => {
+      console.error('Initial session error:', error);
+      authStateHandlers?.onChange(null, null);
+    });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase?.auth?.onAuthStateChange(
-      authStateHandlers?.onChange
-    )
+    try {
+      const unsubscribe = supabase?.auth?.onAuthStateChange?.(
+        authStateHandlers?.onChange
+      );
 
-    return () => subscription?.unsubscribe()
+      return () => {
+        if (typeof unsubscribe === 'function') {
+          unsubscribe();
+        } else if (unsubscribe?.unsubscribe) {
+          unsubscribe.unsubscribe();
+        }
+      };
+    } catch (error) {
+      console.error('Auth listener error:', error);
+    }
   }, [])
 
   const signIn = async (email, password) => {

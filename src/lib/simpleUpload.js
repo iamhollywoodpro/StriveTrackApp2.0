@@ -1,5 +1,5 @@
 // SIMPLE AND RELIABLE UPLOAD SYSTEM
-// Built specifically for strivetrack-media R2 bucket
+// Built specifically for Cloudflare R2 with Cloudflare Auth (NO SUPABASE!)
 
 const API_BASE = 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 
@@ -55,14 +55,14 @@ const retryOperation = async (operation, maxRetries = 3) => {
   throw lastError;
 };
 
-// Main upload function - SIMPLE AND RELIABLE
+// Main upload function - SIMPLE AND RELIABLE WITH CLOUDFLARE AUTH
 export const uploadToR2 = async (file, supabase, progressCallback) => {
-  console.log('🚀 Starting simple R2 upload...');
+  console.log('🚀 Starting simple R2 upload with Cloudflare auth...');
   
   // Validate file
   validateFile(file);
   
-  // Get authentication
+  // Get authentication from Cloudflare auth system
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
   

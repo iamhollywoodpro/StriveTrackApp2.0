@@ -48,6 +48,22 @@ function guessContentTypeFromKey(key: string): string | undefined {
 async function ensureTables(env: Bindings) {
   // Create base tables first
   const createStmts = [
+    `CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      name TEXT,
+      created_at INTEGER DEFAULT (strftime('%s', 'now'))
+    );`,
+    `CREATE TABLE IF NOT EXISTS user_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expires_at INTEGER NOT NULL,
+      created_at INTEGER DEFAULT (strftime('%s', 'now')),
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    );`,
     `CREATE TABLE IF NOT EXISTS media (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL,
@@ -120,11 +136,13 @@ async function ensureTables(env: Bindings) {
       user_id TEXT NOT NULL,
       content TEXT NOT NULL,
       post_type TEXT DEFAULT 'progress',
+      visibility TEXT DEFAULT 'public',
       media_url TEXT,
       tags TEXT,
       likes_count INTEGER DEFAULT 0,
       comments_count INTEGER DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );`,
     `CREATE TABLE IF NOT EXISTS social_comments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,12 +192,14 @@ async function ensureTables(env: Bindings) {
     );`,
     `CREATE TABLE IF NOT EXISTS user_stats (
       user_id TEXT PRIMARY KEY,
-      total_posts INTEGER DEFAULT 0,
+      total_points INTEGER DEFAULT 0,
+      posts_count INTEGER DEFAULT 0,
       total_friends INTEGER DEFAULT 0,
       total_likes_received INTEGER DEFAULT 0,
-      total_challenges_won INTEGER DEFAULT 0,
+      challenges_won INTEGER DEFAULT 0,
       streak_days INTEGER DEFAULT 0,
-      last_activity DATETIME DEFAULT CURRENT_TIMESTAMP
+      last_activity DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );`
   ]
 
@@ -188,7 +208,7 @@ async function ensureTables(env: Bindings) {
     try { await env.DB.prepare(sql).run() } catch (_) {}
   }
 
-  // Add new columns to existing nutrition_logs table (safe to run multiple times)
+  // Add new columns to existing tables (safe to run multiple times)
   const alterStmts = [
     `ALTER TABLE nutrition_logs ADD COLUMN fiber INTEGER DEFAULT 0`,
     `ALTER TABLE nutrition_logs ADD COLUMN sugar INTEGER DEFAULT 0`, 
@@ -196,7 +216,13 @@ async function ensureTables(env: Bindings) {
     `ALTER TABLE nutrition_logs ADD COLUMN food_image TEXT`,
     `ALTER TABLE nutrition_logs ADD COLUMN food_id TEXT`,
     `ALTER TABLE nutrition_logs ADD COLUMN category TEXT`,
-    `ALTER TABLE nutrition_logs ADD COLUMN addons TEXT`
+    `ALTER TABLE nutrition_logs ADD COLUMN addons TEXT`,
+    `ALTER TABLE social_posts ADD COLUMN visibility TEXT DEFAULT 'public'`,
+    `ALTER TABLE social_posts ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE media ADD COLUMN flagged INTEGER DEFAULT 0`,
+    `ALTER TABLE media ADD COLUMN flag_reason TEXT`,
+    `ALTER TABLE media ADD COLUMN flagged_at DATETIME`,
+    `ALTER TABLE media ADD COLUMN flagged_by TEXT`
   ]
 
   // Execute ALTER statements (ignore errors if columns already exist)
@@ -207,6 +233,33 @@ async function ensureTables(env: Bindings) {
   }
 }
 
+// Simple JWT verification using Cloudflare secrets
+async function verifyJWTToken(env: Bindings, token: string) {
+  if (!token) return null
+  
+  try {
+    // For now, implement simple token validation
+    // Later we'll use proper JWT with Cloudflare Workers
+    
+    // Simple session-based auth - store sessions in D1
+    const session = await env.DB.prepare('SELECT user_id, email, created_at FROM user_sessions WHERE token = ? AND expires_at > ?')
+      .bind(token, Date.now())
+      .first<{ user_id: string, email: string, created_at: number }>()
+    
+    if (!session) return null
+    
+    return {
+      id: session.user_id,
+      email: session.email,
+      session_created: session.created_at
+    }
+  } catch (error) {
+    console.error('Token verification error:', error)
+    return null
+  }
+}
+
+// Fallback: also try Supabase for existing users during transition
 async function verifySupabaseToken(env: Bindings, token: string) {
   if (!token) return null
   try {
@@ -219,6 +272,19 @@ async function verifySupabaseToken(env: Bindings, token: string) {
   } catch (_) {
     return null
   }
+}
+
+// Unified token verification - try both methods
+async function verifyToken(env: Bindings, token: string) {
+  // Try Cloudflare auth first
+  let user = await verifyJWTToken(env, token)
+  
+  // Fallback to Supabase for transition period
+  if (!user) {
+    user = await verifySupabaseToken(env, token)
+  }
+  
+  return user
 }
 
 app.options('*', (c) => {
@@ -239,6 +305,338 @@ app.get('/api/health', (c) => {
   return jsonCORS(origin, { ok: true, ts: Date.now() })
 })
 
+// System test endpoint - NO AUTH REQUIRED (for debugging)
+app.get('/api/system-test', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  const results = {
+    timestamp: new Date().toISOString(),
+    tests: {} as any
+  }
+  
+  try {
+    // Test 1: Environment variables
+    results.tests.env = {
+      supabase_url: !!c.env.SUPABASE_URL,
+      supabase_anon_key: !!c.env.SUPABASE_ANON_KEY,
+      r2_bucket: !!c.env.R2_BUCKET,
+      d1_db: !!c.env.DB
+    }
+    
+    // Test 2: Database connectivity
+    try {
+      await ensureTables(c.env)
+      await c.env.DB.prepare('SELECT 1 as test').first()
+      results.tests.database = { status: 'ok', error: null }
+    } catch (error: any) {
+      results.tests.database = { status: 'error', error: error.message }
+    }
+    
+    // Test 3: R2 connectivity
+    try {
+      const testKey = `system-test-${Date.now()}.txt`
+      await c.env.R2_BUCKET.put(testKey, 'test content')
+      const retrieved = await c.env.R2_BUCKET.get(testKey)
+      if (retrieved) {
+        await c.env.R2_BUCKET.delete(testKey)
+        results.tests.r2_storage = { status: 'ok', error: null }
+      } else {
+        results.tests.r2_storage = { status: 'error', error: 'Could not retrieve test file' }
+      }
+    } catch (error: any) {
+      results.tests.r2_storage = { status: 'error', error: error.message }
+    }
+    
+    // Test 4: Supabase connectivity (without user token)
+    try {
+      const response = await fetch(`${c.env.SUPABASE_URL}/rest/v1/`, {
+        headers: { 'apikey': c.env.SUPABASE_ANON_KEY }
+      })
+      results.tests.supabase_connectivity = { 
+        status: response.ok ? 'ok' : 'error', 
+        error: response.ok ? null : `HTTP ${response.status}`,
+        response_status: response.status
+      }
+    } catch (error: any) {
+      results.tests.supabase_connectivity = { status: 'error', error: error.message }
+    }
+    
+    results.overall_status = Object.values(results.tests).every((test: any) => test.status === 'ok') ? 'healthy' : 'degraded'
+    
+  } catch (error: any) {
+    results.tests.system = { status: 'error', error: error.message }
+    results.overall_status = 'failed'
+  }
+  
+  return jsonCORS(origin, results)
+})
+
+// TEMPORARY TEST UPLOAD - NO AUTH (for debugging upload failures)
+app.post('/api/test-upload', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  try {
+    console.log('🧪 TEST UPLOAD: Starting...')
+    
+    await ensureTables(c.env)
+    
+    // Use a test user ID
+    const testUserId = 'test-user-' + Date.now()
+    const headerName = c.req.header('x-file-name') || 'test-upload.bin'
+    const sanitized = headerName.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const key = `${testUserId}/progress/test-${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${sanitized.split('.').pop()}`
+    
+    console.log('🧪 TEST UPLOAD: Processing file...')
+    
+    const body = await c.req.arrayBuffer()
+    if (!body || body.byteLength === 0) {
+      console.log('❌ TEST UPLOAD: Empty file')
+      return jsonCORS(origin, { error: 'No file content' }, 400)
+    }
+    
+    console.log(`🧪 TEST UPLOAD: File size: ${body.byteLength} bytes`)
+    
+    // Upload to R2
+    console.log('🧪 TEST UPLOAD: Uploading to R2...')
+    const r2Result = await c.env.R2_BUCKET.put(key, body, {
+      httpMetadata: {
+        contentType: c.req.header('content-type') || 'application/octet-stream',
+        contentLength: body.byteLength.toString()
+      }
+    })
+    
+    if (!r2Result) {
+      console.log('❌ TEST UPLOAD: R2 upload failed')
+      return jsonCORS(origin, { error: 'R2 upload failed' }, 500)
+    }
+    
+    console.log('✅ TEST UPLOAD: R2 upload successful')
+    
+    // Store in D1
+    console.log('🧪 TEST UPLOAD: Storing in database...')
+    await c.env.DB.prepare(`
+      INSERT OR REPLACE INTO media (user_id, r2_key, content_type, created_at)
+      VALUES (?, ?, ?, ?)
+    `).bind(testUserId, key, c.req.header('content-type') || 'application/octet-stream', Date.now()).run()
+    
+    console.log('✅ TEST UPLOAD: Database storage successful')
+    
+    return jsonCORS(origin, {
+      success: true,
+      key,
+      testUserId,
+      message: 'Test upload successful - NO AUTH CHECK',
+      size: body.byteLength,
+      url: `https://strivetrack-media-api.iamhollywoodpro.workers.dev/api/test-media/${encodeURIComponent(key)}`
+    })
+    
+  } catch (error: any) {
+    console.error('💥 TEST UPLOAD ERROR:', error)
+    return jsonCORS(origin, { 
+      error: `Test upload failed: ${error.message}`,
+      stack: error.stack 
+    }, 500)
+  }
+})
+
+// Get test uploaded media - NO AUTH
+app.get('/api/test-media/*', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  const fullPath = c.req.path
+  let objectKey = fullPath.replace('/api/test-media/', '')
+  try { 
+    objectKey = decodeURIComponent(objectKey) 
+  } catch (_) {}
+  
+  console.log(`🧪 TEST MEDIA: Retrieving ${objectKey}`)
+  
+  const obj = await c.env.R2_BUCKET.get(objectKey)
+  if (!obj) {
+    console.log(`❌ TEST MEDIA: File not found ${objectKey}`)
+    return withCORS(new Response('File not found', { status: 404 }), origin, c.req.raw)
+  }
+  
+  console.log(`✅ TEST MEDIA: File found, serving ${objectKey}`)
+  
+  const headers: Record<string, string> = {}
+  if (obj.httpMetadata?.contentType) {
+    headers['Content-Type'] = obj.httpMetadata.contentType
+  }
+  if (obj.size) {
+    headers['Content-Length'] = obj.size.toString()
+  }
+  
+  return withCORS(new Response(obj.body, { headers }), origin, c.req.raw)
+})
+
+// ---------------- Authentication ----------------
+// Simple password hashing (for demo - use bcrypt in production)
+function simpleHash(password: string): string {
+  // This is a simple hash - in production use proper bcrypt
+  const encoder = new TextEncoder()
+  const data = encoder.encode(password + 'strivetrack-salt-2024')
+  return Array.from(data).map(byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+// Generate session token
+function generateSessionToken(): string {
+  return `st_${Date.now()}_${Math.random().toString(36).substring(2, 15)}_${Math.random().toString(36).substring(2, 15)}`
+}
+
+// POST /api/auth/register
+app.post('/api/auth/register', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  try {
+    await ensureTables(c.env)
+    
+    const { email, password, name } = await c.req.json()
+    
+    if (!email || !password) {
+      return jsonCORS(origin, { error: 'Email and password required' }, 400)
+    }
+    
+    if (password.length < 6) {
+      return jsonCORS(origin, { error: 'Password must be at least 6 characters' }, 400)
+    }
+    
+    // Check if user exists
+    const existingUser = await c.env.DB.prepare('SELECT id FROM users WHERE email = ?')
+      .bind(email.toLowerCase())
+      .first()
+    
+    if (existingUser) {
+      return jsonCORS(origin, { error: 'User already exists' }, 409)
+    }
+    
+    // Create user
+    const userId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`
+    const passwordHash = simpleHash(password)
+    
+    await c.env.DB.prepare('INSERT INTO users (id, email, password_hash, name) VALUES (?, ?, ?, ?)')
+      .bind(userId, email.toLowerCase(), passwordHash, name || email.split('@')[0])
+      .run()
+    
+    // Create session
+    const token = generateSessionToken()
+    const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
+    
+    await c.env.DB.prepare('INSERT INTO user_sessions (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)')
+      .bind(userId, email.toLowerCase(), token, expiresAt)
+      .run()
+    
+    return jsonCORS(origin, {
+      success: true,
+      user: { id: userId, email: email.toLowerCase(), name: name || email.split('@')[0] },
+      token,
+      expires_at: expiresAt
+    })
+    
+  } catch (error: any) {
+    console.error('Registration error:', error)
+    return jsonCORS(origin, { error: 'Registration failed' }, 500)
+  }
+})
+
+// POST /api/auth/login
+app.post('/api/auth/login', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  try {
+    await ensureTables(c.env)
+    
+    const { email, password } = await c.req.json()
+    
+    if (!email || !password) {
+      return jsonCORS(origin, { error: 'Email and password required' }, 400)
+    }
+    
+    // Find user
+    const user = await c.env.DB.prepare('SELECT id, email, password_hash, name FROM users WHERE email = ?')
+      .bind(email.toLowerCase())
+      .first<{ id: string, email: string, password_hash: string, name: string }>()
+    
+    if (!user) {
+      return jsonCORS(origin, { error: 'Invalid credentials' }, 401)
+    }
+    
+    // Verify password
+    const passwordHash = simpleHash(password)
+    if (passwordHash !== user.password_hash) {
+      return jsonCORS(origin, { error: 'Invalid credentials' }, 401)
+    }
+    
+    // Create session
+    const token = generateSessionToken()
+    const expiresAt = Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
+    
+    // Clean old sessions (keep last 5)
+    await c.env.DB.prepare('DELETE FROM user_sessions WHERE user_id = ? AND id NOT IN (SELECT id FROM user_sessions WHERE user_id = ? ORDER BY created_at DESC LIMIT 5)')
+      .bind(user.id, user.id)
+      .run()
+    
+    await c.env.DB.prepare('INSERT INTO user_sessions (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)')
+      .bind(user.id, user.email, token, expiresAt)
+      .run()
+    
+    return jsonCORS(origin, {
+      success: true,
+      user: { id: user.id, email: user.email, name: user.name },
+      token,
+      expires_at: expiresAt
+    })
+    
+  } catch (error: any) {
+    console.error('Login error:', error)
+    return jsonCORS(origin, { error: 'Login failed' }, 500)
+  }
+})
+
+// POST /api/auth/logout
+app.post('/api/auth/logout', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  try {
+    const auth = c.req.header('authorization') || ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+    
+    if (token) {
+      await c.env.DB.prepare('DELETE FROM user_sessions WHERE token = ?')
+        .bind(token)
+        .run()
+    }
+    
+    return jsonCORS(origin, { success: true, message: 'Logged out' })
+    
+  } catch (error: any) {
+    console.error('Logout error:', error)
+    return jsonCORS(origin, { error: 'Logout failed' }, 500)
+  }
+})
+
+// GET /api/auth/me
+app.get('/api/auth/me', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  try {
+    const auth = c.req.header('authorization') || ''
+    const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
+    
+    const user = await verifyToken(c.env, token)
+    if (!user?.id) {
+      return jsonCORS(origin, { error: 'Not authenticated' }, 401)
+    }
+    
+    return jsonCORS(origin, {
+      user: { id: user.id, email: user.email, name: user.name || user.email?.split('@')[0] }
+    })
+    
+  } catch (error: any) {
+    console.error('Auth check error:', error)
+    return jsonCORS(origin, { error: 'Authentication check failed' }, 500)
+  }
+})
+
 // ---------------- Media ----------------
 // POST /api/upload (Legacy endpoint for backward compatibility)
 app.post('/api/upload', async (c) => {
@@ -247,11 +645,12 @@ app.post('/api/upload', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
+  const user = await verifyToken(c.env, token)
   if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
 
   await ensureTables(c.env)
 
+  const userId = user.id
   const headerName = c.req.header('x-file-name') || 'upload.bin'
   const sanitized = headerName.replace(/[^a-zA-Z0-9._-]/g, '_')
   const key = `${userId}/progress/${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${sanitized.split('.').pop()}`
@@ -261,24 +660,30 @@ app.post('/api/upload', async (c) => {
     return withCORS(new Response(JSON.stringify({ error: 'Empty body' }), { status: 400 }), origin)
 
   const contentType = c.req.header('content-type') || guessContentTypeFromKey(key) || 'application/octet-stream'
-  await c.env.R2_BUCKET.put(key, body, { httpMetadata: { contentType } })
+  
+  // R2 upload with verification
+  const r2Result = await c.env.R2_BUCKET.put(key, body, { httpMetadata: { contentType } })
+  if (!r2Result) {
+    throw new Error('Failed to upload file to R2 storage')
+  }
 
-  // Index in D1 (best effort)
+  // Only index in D1 after successful R2 upload
+  await c.env.DB.prepare('INSERT INTO media (user_id, r2_key, content_type, created_at) VALUES (?, ?, ?, ?)')
+    .bind(userId, key, contentType, Date.now())
+    .run()
+    
+  // First upload achievement (+25)
   try {
-    await c.env.DB.prepare('INSERT INTO media (user_id, key, content_type) VALUES (?, ?, ?)')
-      .bind(userId, key, contentType)
-      .run()
-    // First upload achievement (+25)
-    try {
-      const ach = await c.env.DB.prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
-        .bind(userId, 'first_upload', 25).run()
-      // @ts-ignore
-      if (ach?.meta?.changes > 0) {
-        await c.env.DB.prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
-          .bind(userId, 25, 'first_upload').run()
-      }
-    } catch (_) {}
-  } catch (_) {}
+    const ach = await c.env.DB.prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
+      .bind(userId, 'first_upload', 25).run()
+    // @ts-ignore
+    if (ach?.meta?.changes > 0) {
+      await c.env.DB.prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
+        .bind(userId, 25, 'first_upload').run()
+    }
+  } catch (achErr) {
+    console.log('Achievement already earned:', achErr)
+  }
 
   return withCORS(new Response(JSON.stringify({ key }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin, c.req.raw)
 })
@@ -290,10 +695,9 @@ app.post('/api/upload/presigned', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -336,12 +740,13 @@ app.post('/api/upload/worker', async (c) => {
     const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
     
     console.log('🔐 Token validation...')
-    const user = await verifySupabaseToken(c.env, token)
+    const user = await verifyToken(c.env, token)
     if (!user?.id) {
       console.log('❌ Authentication failed')
       return jsonCORS(origin, { error: 'Unauthorized' }, 401)
     }
     
+    const userId = user.id
     console.log('✅ User authenticated:', userId)
     await ensureTables(c.env)
 
@@ -369,32 +774,40 @@ app.post('/api/upload/worker', async (c) => {
     // Upload to R2
     console.log('☁️ Uploading to R2...')
     const buffer = await file.arrayBuffer()
-    await c.env.R2_BUCKET.put(key, buffer, { 
+    
+    // R2 upload with error handling
+    const r2Result = await c.env.R2_BUCKET.put(key, buffer, { 
       httpMetadata: { 
         contentType: fileType,
         contentLength: buffer.byteLength.toString()
       } 
     })
-    console.log('✅ R2 upload complete')
+    
+    if (!r2Result) {
+      console.error('❌ R2 upload failed - no result returned')
+      throw new Error('Failed to upload file to R2 storage')
+    }
+    
+    console.log('✅ R2 upload complete', { etag: r2Result.etag })
 
-    // Index in D1
+    // Only index in D1 AFTER successful R2 upload
     console.log('🗃️ Indexing in D1...')
+    await c.env.DB.prepare('INSERT OR REPLACE INTO media (user_id, r2_key, content_type, created_at) VALUES (?, ?, ?, ?)')
+      .bind(userId, key, fileType, Date.now())
+      .run()
+    
+    // First upload achievement
     try {
-      await c.env.DB.prepare('INSERT OR REPLACE INTO media (user_id, key, content_type) VALUES (?, ?, ?)')
-        .bind(userId, key, fileType)
-        .run()
-      
-      // First upload achievement
-      try {
-        const ach = await c.env.DB.prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
-          .bind(userId, 'first_upload', 25).run()
-        // @ts-ignore
-        if (ach?.meta?.changes > 0) {
-          await c.env.DB.prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
-            .bind(userId, 25, 'first_upload').run()
-        }
-      } catch (_) {}
-    } catch (_) {}
+      const ach = await c.env.DB.prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
+        .bind(userId, 'first_upload', 25).run()
+      // @ts-ignore
+      if (ach?.meta?.changes > 0) {
+        await c.env.DB.prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
+          .bind(userId, 25, 'first_upload').run()
+      }
+    } catch (achErr) {
+      console.log('Achievement already earned or error:', achErr)
+    }
     console.log('✅ D1 indexing complete')
 
     console.log('🎉 Upload successful!', { key })
@@ -413,10 +826,9 @@ app.post('/api/upload/chunked', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -456,10 +868,9 @@ app.post('/api/upload/chunked/finalize', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -486,10 +897,9 @@ app.post('/api/upload/base64', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -521,8 +931,8 @@ app.post('/api/upload/base64', async (c) => {
 
     // Index in D1
     try {
-      await c.env.DB.prepare('INSERT OR REPLACE INTO media (user_id, key, content_type) VALUES (?, ?, ?)')
-        .bind(userId, key, fileType)
+      await c.env.DB.prepare('INSERT OR REPLACE INTO media (user_id, r2_key, content_type, created_at) VALUES (?, ?, ?, ?)')
+        .bind(userId, key, fileType, Date.now())
         .run()
       
       // First upload achievement
@@ -550,10 +960,9 @@ app.get('/api/media', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -576,8 +985,8 @@ app.get('/api/media', async (c) => {
     
     // Re-populate with actual R2 files
     for (const it of itemsR2) {
-      await c.env.DB.prepare('INSERT INTO media (user_id, key, content_type) VALUES (?, ?, ?)')
-        .bind(userId, it.key, it.contentType || null).run()
+      await c.env.DB.prepare('INSERT INTO media (user_id, r2_key, content_type, created_at) VALUES (?, ?, ?, ?)')
+        .bind(userId, it.key, it.contentType || null, Date.now()).run()
     }
   } catch (e) {
     // D1 sync error (non-critical)
@@ -599,7 +1008,7 @@ app.get('/api/media/*', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
+  const user = await verifyToken(c.env, token)
   if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
 
   await ensureTables(c.env)
@@ -638,7 +1047,7 @@ app.delete('/api/media/*', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
+  const user = await verifyToken(c.env, token)
   if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
 
   await ensureTables(c.env)
@@ -668,10 +1077,9 @@ app.get('/api/goals', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -719,10 +1127,9 @@ app.post('/api/goals', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -775,10 +1182,9 @@ app.delete('/api/goals/:id', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
   const id = Number(c.req.param('id'))
   if (!id) return jsonCORS(origin, { error: 'Invalid id' }, 400)
   try {
@@ -796,10 +1202,9 @@ app.get('/api/habits', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -830,10 +1235,9 @@ app.post('/api/habits', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -860,10 +1264,9 @@ app.post('/api/habits/:id/log', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -905,10 +1308,9 @@ app.delete('/api/habits/:id', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
   const habitId = Number(c.req.param('id'))
   if (!habitId) return jsonCORS(origin, { error: 'Invalid habit id' }, 400)
   try {
@@ -927,10 +1329,9 @@ app.get('/api/nutrition', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -953,10 +1354,9 @@ app.post('/api/nutrition', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1003,10 +1403,9 @@ app.delete('/api/nutrition/:id', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1027,10 +1426,9 @@ app.get('/api/achievements', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1066,10 +1464,9 @@ app.get('/api/profile', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1113,10 +1510,9 @@ app.put('/api/profile', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1150,10 +1546,9 @@ app.get('/api/admin/users', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
   if (!isAdminUser(user)) return jsonCORS(origin, { error: 'Forbidden' }, 403)
 
   await ensureTables(c.env)
@@ -1184,10 +1579,9 @@ app.get('/api/admin/user/:id/profile', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
   if (!isAdminUser(user)) return jsonCORS(origin, { error: 'Forbidden' }, 403)
 
   const targetUserId = c.req.param('id')
@@ -1220,10 +1614,9 @@ app.get('/api/admin/user/:id/media', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
   if (!isAdminUser(user)) return jsonCORS(origin, { error: 'Forbidden' }, 403)
 
   const targetUserId = c.req.param('id')
@@ -1231,7 +1624,7 @@ app.get('/api/admin/user/:id/media', async (c) => {
 
   try {
     const media = await c.env.DB
-      .prepare('SELECT key, content_type as contentType, created_at as createdAt FROM media WHERE user_id = ? ORDER BY created_at DESC')
+      .prepare('SELECT r2_key as key, content_type as contentType, created_at as createdAt, flagged, flag_reason FROM media WHERE user_id = ? ORDER BY created_at DESC')
       .bind(targetUserId)
       .all()
     
@@ -1261,7 +1654,7 @@ app.get('/api/admin/media/*', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
+  const user = await verifyToken(c.env, token)
   if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
   if (!isAdminUser(user)) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin, c.req.raw)
 
@@ -1270,7 +1663,7 @@ app.get('/api/admin/media/*', async (c) => {
   // Verify ownership via D1 (same as user endpoint but admin can access any)
   let allowed = false
   try {
-    const row = await c.env.DB.prepare('SELECT 1 as ok FROM media WHERE user_id = ? AND key = ? LIMIT 1')
+    const row = await c.env.DB.prepare('SELECT 1 as ok FROM media WHERE user_id = ? AND r2_key = ? LIMIT 1')
       .bind(userId, objectKey).first<any>()
     if (row?.ok === 1) allowed = true
   } catch (_) {}
@@ -1278,7 +1671,7 @@ app.get('/api/admin/media/*', async (c) => {
   // Also check if admin is trying to access any media (allow if exists in D1)
   if (!allowed) {
     try {
-      const mediaRow = await c.env.DB.prepare('SELECT user_id FROM media WHERE key = ? LIMIT 1')
+      const mediaRow = await c.env.DB.prepare('SELECT user_id FROM media WHERE r2_key = ? LIMIT 1')
         .bind(objectKey).first<any>()
       if (mediaRow) allowed = true // Admin can access any existing media
     } catch (_) {}
@@ -1307,7 +1700,7 @@ app.delete('/api/admin/media/*', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
+  const user = await verifyToken(c.env, token)
   if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
   if (!isAdminUser(user)) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin, c.req.raw)
 
@@ -1317,11 +1710,48 @@ app.delete('/api/admin/media/*', async (c) => {
     // Delete from R2 first
     await c.env.R2_BUCKET.delete(objectKey)
     // Delete from D1
-    await c.env.DB.prepare('DELETE FROM media WHERE key = ?').bind(objectKey).run()
+    await c.env.DB.prepare('DELETE FROM media WHERE r2_key = ?').bind(objectKey).run()
     
     return jsonCORS(origin, { success: true })
   } catch (e: any) {
     return jsonCORS(origin, { error: e?.message || 'Delete failed' }, 500)
+  }
+})
+
+// POST /api/admin/media/*/flag - Admin flag media
+app.post('/api/admin/media/*/flag', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  // Extract object key from URL path
+  const fullPath = c.req.path
+  let objectKey = fullPath.replace('/api/admin/media/', '').replace('/flag', '')
+  try { 
+    objectKey = decodeURIComponent(objectKey) 
+  } catch (_) {}
+  const auth = c.req.header('authorization') || ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return withCORS(new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 }), origin, c.req.raw)
+  if (!isAdminUser(user)) return withCORS(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }), origin, c.req.raw)
+
+  await ensureTables(c.env)
+
+  try {
+    const { reason } = await c.req.json()
+    const now = new Date().toISOString()
+    
+    // Check if media exists and update flag
+    const result = await c.env.DB.prepare('UPDATE media SET flagged = 1, flag_reason = ?, flagged_at = ?, flagged_by = ? WHERE r2_key = ?')
+      .bind(reason || 'Inappropriate content', now, user.id, objectKey).run()
+    
+    if (result.changes === 0) {
+      return jsonCORS(origin, { error: 'Media not found' }, 404)
+    }
+    
+    return jsonCORS(origin, { success: true, message: 'Media flagged successfully' })
+  } catch (e: any) {
+    return jsonCORS(origin, { error: e?.message || 'Failed to flag media' }, 500)
   }
 })
 
@@ -1334,10 +1764,9 @@ app.post('/api/posts', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1394,10 +1823,9 @@ app.get('/api/posts', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1417,16 +1845,11 @@ app.get('/api/posts', async (c) => {
       FROM social_posts p
       LEFT JOIN user_profiles up ON p.user_id = up.user_id
       WHERE 
-        p.visibility = 'public' 
+        p.visibility IN ('public', 'friends') 
         OR p.user_id = ?
-        OR EXISTS (
-          SELECT 1 FROM friendships f 
-          WHERE ((f.requester_id = ? AND f.addressee_id = p.user_id) OR (f.addressee_id = ? AND f.requester_id = p.user_id))
-          AND f.status = 'accepted'
-        )
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `).bind(userId, userId, userId, userId, limit, offset).all<any>()
+    `).bind(userId, userId, limit, offset).all<any>()
 
     const formattedPosts = posts.results?.map(post => ({
       ...post,
@@ -1453,10 +1876,9 @@ app.post('/api/posts/:id/like', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1484,7 +1906,32 @@ app.post('/api/posts/:id/like', async (c) => {
         VALUES (?, ?, ?)
       `).bind(userId, postId, now).run()
 
-      return jsonCORS(origin, { success: true, action: 'liked' })
+      // Award 1 point for liking a post
+      await c.env.DB.prepare(`
+        INSERT INTO user_stats (user_id, total_points)
+        VALUES (?, 1)
+        ON CONFLICT(user_id) DO UPDATE SET
+          total_points = total_points + 1,
+          updated_at = ?
+      `).bind(userId, now).run()
+
+      // Award 2 points to post author for receiving a like
+      const postAuthor = await c.env.DB.prepare(`
+        SELECT user_id FROM social_posts WHERE id = ?
+      `).bind(postId).first<any>()
+      
+      if (postAuthor?.user_id && postAuthor.user_id !== userId) {
+        await c.env.DB.prepare(`
+          INSERT INTO user_stats (user_id, total_points, total_likes_received)
+          VALUES (?, 2, 1)
+          ON CONFLICT(user_id) DO UPDATE SET
+            total_points = total_points + 2,
+            total_likes_received = total_likes_received + 1,
+            updated_at = ?
+        `).bind(postAuthor.user_id, now).run()
+      }
+
+      return jsonCORS(origin, { success: true, action: 'liked', points_awarded: 1 })
     }
   } catch (e: any) {
     console.error('Like error:', e)
@@ -1499,10 +1946,9 @@ app.post('/api/posts/:id/comments', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1536,10 +1982,9 @@ app.get('/api/posts/:id/comments', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1573,10 +2018,9 @@ app.post('/api/friends/invite', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1655,10 +2099,9 @@ app.post('/api/friends/add', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1721,10 +2164,9 @@ app.post('/api/friends/:id/accept', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1764,10 +2206,9 @@ app.get('/api/friends', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1804,10 +2245,9 @@ app.post('/api/challenges', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1857,10 +2297,9 @@ app.get('/api/challenges', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1868,17 +2307,15 @@ app.get('/api/challenges', async (c) => {
     const challenges = await c.env.DB.prepare(`
       SELECT 
         c.*,
-        challenger.email as challenger_email,
+        challenger_profile.name as challenger_email,
         challenger_profile.full_name as challenger_name,
         challenger_profile.profile_picture_url as challenger_avatar,
-        challenged.email as challenged_email,
+        challenged_profile.name as challenged_email,
         challenged_profile.full_name as challenged_name,
         challenged_profile.profile_picture_url as challenged_avatar
       FROM friend_challenges c
-      LEFT JOIN users challenger ON c.challenger_id = challenger.id
-      LEFT JOIN user_profiles challenger_profile ON challenger.id = challenger_profile.user_id
-      LEFT JOIN users challenged ON c.challenged_id = challenged.id
-      LEFT JOIN user_profiles challenged_profile ON challenged.id = challenged_profile.user_id
+      LEFT JOIN user_profiles challenger_profile ON c.challenger_id = challenger_profile.user_id
+      LEFT JOIN user_profiles challenged_profile ON c.challenged_id = challenged_profile.user_id
       WHERE (c.challenger_id = ? OR c.challenged_id = ?) AND c.status = 'active'
       ORDER BY c.created_at DESC
     `).bind(userId, userId).all<any>()
@@ -1897,10 +2334,9 @@ app.post('/api/challenges/:id/progress', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -1969,10 +2405,9 @@ app.post('/api/chat/messages', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -2016,10 +2451,9 @@ app.get('/api/chat/messages/:friend_id', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -2065,10 +2499,9 @@ app.post('/api/user/status', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -2102,10 +2535,9 @@ app.get('/api/leaderboard', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -2155,10 +2587,9 @@ app.post('/api/achievements/award', async (c) => {
   const url = new URL(c.req.url)
   const qToken = url.searchParams.get('token') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
-  const user = await verifySupabaseToken(c.env, token)
-  // TEMPORARY: Use your real user ID for testing (REMOVE IN PRODUCTION)
-  const userId = user?.id || '136d84f0-d877-4c0c-b2f0-2e6270fcee9c'
-  if (!userId) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  const userId = user.id
 
   await ensureTables(c.env)
 
@@ -2259,6 +2690,131 @@ app.get('/api/debug/posts', async (c) => {
   } catch (e: any) {
     console.error('Debug posts fetch error:', e)
     return jsonCORS(origin, { error: e?.message || 'Failed to fetch posts' }, 500)
+  }
+})
+
+// DEBUG: Get users without auth (REMOVE IN PRODUCTION)
+app.get('/api/debug/users', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  try {
+    await ensureTables(c.env)
+    
+    const users = await c.env.DB.prepare(`
+      SELECT up.*, us.total_posts, us.total_friends, us.total_likes_received, us.total_challenges_won, us.streak_days
+      FROM user_profiles up
+      LEFT JOIN user_stats us ON up.user_id = us.user_id
+      ORDER BY us.total_challenges_won DESC NULLS LAST
+      LIMIT 10
+    `).all()
+    
+    return jsonCORS(origin, { success: true, users: users.results || [] })
+  } catch (e: any) {
+    console.error('Debug users error:', e)
+    return jsonCORS(origin, { error: e?.message || 'Failed to get users' }, 500)
+  }
+})
+
+// DEBUG: Get friends without auth (REMOVE IN PRODUCTION)
+app.get('/api/debug/friends', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  try {
+    await ensureTables(c.env)
+    
+    const friends = await c.env.DB.prepare(`
+      SELECT COUNT(*) as total_friendships
+      FROM friendships
+      WHERE status = 'accepted'
+    `).all()
+    
+    return jsonCORS(origin, { success: true, friends: friends.results || [], message: 'Friends system ready' })
+  } catch (e: any) {
+    console.error('Debug friends error:', e)
+    return jsonCORS(origin, { error: e?.message || 'Failed to get friends' }, 500)
+  }
+})
+
+// DEBUG: Get leaderboard without auth (REMOVE IN PRODUCTION)
+app.get('/api/debug/leaderboard', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  
+  try {
+    await ensureTables(c.env)
+    
+    const leaderboard = await c.env.DB.prepare(`
+      SELECT up.name, up.bio, 
+             us.total_points, us.posts_count, us.challenges_won, us.streak_days, us.total_likes_received
+      FROM user_stats us
+      JOIN user_profiles up ON us.user_id = up.user_id
+      ORDER BY us.total_points DESC, us.challenges_won DESC
+      LIMIT 10
+    `).all()
+    
+    return jsonCORS(origin, { success: true, leaderboard: leaderboard.results || [] })
+  } catch (e: any) {
+    console.error('Debug leaderboard error:', e)
+    return jsonCORS(origin, { error: e?.message || 'Failed to get leaderboard' }, 500)
+  }
+})
+
+// GET /api/achievements/:userId - Get user achievements and points
+app.get('/api/achievements/:userId', async (c) => {
+  const origin = c.req.header('origin') || '*'
+  const auth = c.req.header('authorization') || ''
+  const url = new URL(c.req.url)
+  const qToken = url.searchParams.get('token') || ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7) : qToken
+  const user = await verifyToken(c.env, token)
+  if (!user?.id) return jsonCORS(origin, { error: 'Unauthorized' }, 401)
+  
+  await ensureTables(c.env)
+
+  try {
+    const userId = c.req.param('userId')
+    
+    // Get user stats
+    const stats = await c.env.DB.prepare(`
+      SELECT * FROM user_stats WHERE user_id = ?
+    `).bind(userId).first<any>()
+    
+    if (!stats) {
+      // Create initial stats if they don't exist
+      await c.env.DB.prepare(`
+        INSERT INTO user_stats (user_id) VALUES (?)
+      `).bind(userId).run()
+      
+      const newStats = await c.env.DB.prepare(`
+        SELECT * FROM user_stats WHERE user_id = ?
+      `).bind(userId).first<any>()
+      
+      return jsonCORS(origin, { 
+        success: true, 
+        stats: newStats,
+        achievements: []
+      })
+    }
+    
+    // Calculate achievements based on stats
+    const achievements = []
+    
+    if (stats.posts_count >= 1) achievements.push({ id: 'first_post', name: 'First Post!', description: 'Created your first post', points: 5 })
+    if (stats.posts_count >= 10) achievements.push({ id: 'active_poster', name: 'Active Poster', description: 'Created 10 posts', points: 25 })
+    if (stats.total_likes_received >= 5) achievements.push({ id: 'popular', name: 'Popular!', description: 'Received 5 likes', points: 15 })
+    if (stats.challenges_won >= 1) achievements.push({ id: 'challenger', name: 'Challenger', description: 'Won your first challenge', points: 20 })
+    if (stats.streak_days >= 7) achievements.push({ id: 'week_streak', name: 'Week Warrior', description: 'Maintained a 7-day streak', points: 30 })
+    if (stats.total_points >= 100) achievements.push({ id: 'centurion', name: 'Centurion', description: 'Earned 100 points', points: 50 })
+    
+    return jsonCORS(origin, { 
+      success: true, 
+      stats,
+      achievements,
+      total_achievements: achievements.length,
+      next_milestone: stats.total_points < 100 ? { target: 100, name: 'Centurion' } : { target: 250, name: 'Champion' }
+    })
+  } catch (e: any) {
+    console.error('Achievements error:', e)
+    return jsonCORS(origin, { error: e?.message || 'Failed to get achievements' }, 500)
   }
 })
 
