@@ -233,6 +233,50 @@ async function ensureTables(env: Bindings) {
   }
 }
 
+// Achievement granting helper function
+async function grantAchievement(env: Bindings, userId: string, achievementCode: string, points: number, reason?: string) {
+  try {
+    // Check if achievement already earned today (for daily achievements)
+    if (achievementCode.startsWith('daily_')) {
+      const today = new Date().toISOString().split('T')[0];
+      const existing = await env.DB.prepare('SELECT id FROM achievements WHERE user_id = ? AND code = ? AND DATE(created_at) = ?')
+        .bind(userId, achievementCode, today)
+        .first();
+      
+      if (existing) {
+        console.log(`Achievement ${achievementCode} already earned today for user ${userId}`);
+        return false; // Already earned today
+      }
+    } else {
+      // For non-daily achievements, check if ever earned
+      const existing = await env.DB.prepare('SELECT id FROM achievements WHERE user_id = ? AND code = ?')
+        .bind(userId, achievementCode)
+        .first();
+      
+      if (existing) {
+        console.log(`Achievement ${achievementCode} already earned for user ${userId}`);
+        return false; // Already earned
+      }
+    }
+
+    // Grant the achievement
+    await env.DB.prepare('INSERT INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
+      .bind(userId, achievementCode, points)
+      .run();
+
+    // Add points to ledger
+    await env.DB.prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
+      .bind(userId, points, reason || achievementCode)
+      .run();
+
+    console.log(`✅ Achievement granted: ${achievementCode} (+${points} points) to user ${userId}`);
+    return true; // Successfully granted
+  } catch (error) {
+    console.error('Error granting achievement:', error);
+    return false;
+  }
+}
+
 // Simple JWT verification using Cloudflare secrets
 async function verifyJWTToken(env: Bindings, token: string) {
   if (!token) return null
@@ -578,6 +622,9 @@ app.post('/api/auth/login', async (c) => {
     await c.env.DB.prepare('INSERT INTO user_sessions (user_id, email, token, expires_at) VALUES (?, ?, ?, ?)')
       .bind(user.id, user.email, token, expiresAt)
       .run()
+    
+    // Grant daily login achievement (5 points)
+    await grantAchievement(c.env, user.id, 'daily_login', 5, 'Daily Check-in')
     
     return jsonCORS(origin, {
       success: true,
@@ -1287,16 +1334,11 @@ app.post('/api/habits/:id/log', async (c) => {
     } else {
       await c.env.DB.prepare('INSERT INTO habit_logs (habit_id, user_id, "date") VALUES (?, ?, ?)')
         .bind(habitId, userId, date).run()
-      // first_habit_log achievement
-      try {
-        const ach = await c.env.DB.prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
-          .bind(userId, 'first_habit_log', 10).run()
-        // @ts-ignore
-        if (ach?.meta?.changes > 0) {
-          await c.env.DB.prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
-            .bind(userId, 10, 'first_habit_log').run()
-        }
-      } catch (_) {}
+      
+      // Grant achievements for habit completion
+      await grantAchievement(c.env, userId, 'first_habit_log', 10, 'First Habit Completed')
+      await grantAchievement(c.env, userId, 'daily_habit_complete', 10, 'Habit Hero')
+      
       return jsonCORS(origin, { success: true, removed: false })
     }
   } catch (e: any) {
@@ -1383,16 +1425,11 @@ app.post('/api/nutrition', async (c) => {
       .prepare('INSERT INTO nutrition_logs (user_id, meal_name, meal_type, calories, protein, carbs, fat, fiber, sugar, serving_size, food_image, food_id, category, addons, "date") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .bind(userId, meal_name, meal_type, calories, protein, carbs, fat, fiber, sugar, serving_size, food_image, food_id, category, addons, date)
       .run()
-    // first_nutrition_entry achievement
-    try {
-      const ach = await c.env.DB.prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
-        .bind(userId, 'first_nutrition_entry', 10).run()
-      // @ts-ignore
-      if (ach?.meta?.changes > 0) {
-        await c.env.DB.prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
-          .bind(userId, 10, 'first_nutrition_entry').run()
-      }
-    } catch (_) {}
+    
+    // Grant achievements for nutrition logging
+    await grantAchievement(c.env, userId, 'first_nutrition_entry', 10, 'First Nutrition Entry')
+    await grantAchievement(c.env, userId, 'daily_nutrition_log', 8, 'Nutrition Tracker')
+    
     return jsonCORS(origin, { success: true })
   } catch (e: any) {
     return jsonCORS(origin, { error: e?.message || 'DB error' }, 500)

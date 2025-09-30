@@ -61,9 +61,12 @@ export const AuthProvider = ({ children }) => {
       setUser(authUser)
       setLoading(false)
       
+      // Update document title based on auth state
       if (authUser) {
+        document.title = 'Dashboard - StriveTrack | Continue Your Fitness Journey'
         profileOperations?.load(authUser?.id) // Fire-and-forget
       } else {
+        document.title = 'Sign In - StriveTrack | Continue Your Fitness Journey'
         profileOperations?.clear()
       }
     }

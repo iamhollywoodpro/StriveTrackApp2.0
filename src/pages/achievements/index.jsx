@@ -15,15 +15,18 @@ import {
   getRarityColor,
   getRarityTextColor 
 } from '../../data/achievementDatabase';
+import useConfetti from '../../hooks/useConfetti';
 
 const Achievements = () => {
   const { user } = useAuth();
+  const { playConfetti } = useConfetti();
   
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [achievementsData, setAchievementsData] = useState([]);
   const [userAchievements, setUserAchievements] = useState([]);
+  const [previousAchievements, setPreviousAchievements] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Get all 50 achievements from our comprehensive database
@@ -66,7 +69,30 @@ const Achievements = () => {
       });
 
       setAchievementsData(transformed);
+      
+      // Check for newly earned achievements and trigger confetti
+      const newEarnedCodes = items.map(a => a.code);
+      const previousEarnedCodes = previousAchievements.map(a => a.code);
+      const newlyEarned = items.filter(a => !previousEarnedCodes.includes(a.code));
+      
+      // Trigger confetti for each newly earned achievement
+      if (newlyEarned.length > 0 && previousAchievements.length > 0) {
+        newlyEarned.forEach((achievement, index) => {
+          setTimeout(() => {
+            const achievementDef = ALL_ACHIEVEMENTS.find(def => def.id === achievement.code);
+            if (achievementDef) {
+              playConfetti({
+                title: achievementDef.name,
+                icon: achievementDef.icon,
+                points: achievementDef.points
+              });
+            }
+          }, index * 1000); // Stagger confetti if multiple achievements
+        });
+      }
+      
       setUserAchievements(items);
+      setPreviousAchievements(items);
 
     } catch (error) {
       console.error('Error fetching achievements:', error);
