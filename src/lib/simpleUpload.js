@@ -120,7 +120,8 @@ export const uploadToR2 = async (file, supabase, progressCallback) => {
     return {
       key: result.key,
       success: true,
-      method: 'simple-r2'
+      method: 'simple-r2',
+      achievements: result.achievements || []
     };
   };
 

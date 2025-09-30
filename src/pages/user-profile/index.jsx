@@ -197,37 +197,33 @@ const UserProfile = () => {
         }
       }
 
-      // Upload new profile picture using Worker API
-      const formData = new FormData();
-      formData.append('file', file);
+      // Upload new profile picture using our bulletproof upload system
+      const { uploadToR2 } = await import('../../lib/simpleUpload');
       
-      // Create unique filename for profile picture
-      const fileExt = file.name.split('.').pop();
-      const fileName = `profile_${user.id}_${Date.now()}.${fileExt}`;
-      formData.append('key', fileName);
-
-      const response = await fetch(`${window.location.origin}/api/media`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: formData
-      });
-
-      if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status}`);
-      }
-
-      const result = await response.json();
+      const progressCallback = (progress, status) => {
+        console.log(`Profile upload: ${progress}% - ${status}`);
+      };
       
-      // The Worker API returns the media URL
-      const newProfilePictureUrl = `${window.location.origin}/api/media/${encodeURIComponent(fileName)}`;
+      // Use the same reliable upload system as progress photos
+      const result = await uploadToR2(file, supabase, progressCallback);
+      
+      // Build the media URL with auth token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const API_BASE = 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+      const newProfilePictureUrl = `${API_BASE}/media/${encodeURIComponent(result.key)}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
+      // Save profile picture to backend
+      await apiSend('PUT', '/profile', {
+        profile_picture: result.key,
+        profile_picture_url: newProfilePictureUrl
+      }, supabase);
+      
       // Update user profile with new picture URL
       const updatedProfile = {
         ...userProfile,
         profile_picture_url: newProfilePictureUrl,
-        profile_picture_path: fileName
+        profile_picture_path: result.key
       };
       
       // Update the auth context

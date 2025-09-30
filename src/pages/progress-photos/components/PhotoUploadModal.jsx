@@ -2,9 +2,11 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supabase } from '../../../lib/supabase';
 import { uploadToR2, validateFile, verifyUpload } from '../../../lib/simpleUpload';
+import { useConfetti } from '../../../hooks/useConfetti';
 
 const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
   const { user } = useAuth();
+  const { triggerConfetti } = useConfetti();
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [description, setDescription] = useState('');
@@ -81,6 +83,14 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       
       if (!result?.key) {
         throw new Error('Upload failed - no file key returned');
+      }
+
+      // 🎉 Trigger confetti for any achievements earned!
+      if (result.achievements && result.achievements.length > 0) {
+        console.log('🎉 Achievements earned:', result.achievements);
+        result.achievements.forEach(achievement => {
+          triggerConfetti(achievement.title, achievement.description, achievement.points);
+        });
       }
 
       setUploadStatus('Verifying upload...');

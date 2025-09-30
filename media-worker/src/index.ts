@@ -120,6 +120,7 @@ async function ensureTables(env: Bindings) {
       name TEXT,
       bio TEXT,
       targets TEXT,
+      profile_picture TEXT,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );`,
     `CREATE TABLE IF NOT EXISTS goals (
@@ -723,20 +724,44 @@ app.post('/api/upload', async (c) => {
     .bind(userId, key, contentType, 'progress', Date.now())
     .run()
     
-  // First upload achievement (+25)
+  // First upload achievement (+25) - use proper achievement system
+  const achievements = []
   try {
-    const ach = await c.env.DB.prepare('INSERT OR IGNORE INTO achievements (user_id, code, points) VALUES (?, ?, ?)')
-      .bind(userId, 'first_upload', 25).run()
-    // @ts-ignore
-    if (ach?.meta?.changes > 0) {
-      await c.env.DB.prepare('INSERT INTO points_ledger (user_id, points, reason) VALUES (?, ?, ?)')
-        .bind(userId, 25, 'first_upload').run()
+    const firstUploadResult = await grantAchievement(c.env, userId, 'first_upload', 25, 'First Progress Upload!')
+    if (firstUploadResult) {
+      achievements.push({
+        code: 'first_upload',
+        title: 'First Progress Upload!',
+        description: 'You uploaded your first progress photo!',
+        points: 25,
+        category: 'progress'
+      })
     }
   } catch (achErr) {
-    console.log('Achievement already earned:', achErr)
+    console.log('Achievement error:', achErr)
   }
 
-  return withCORS(new Response(JSON.stringify({ key }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin, c.req.raw)
+  // Progress photo achievement (+10) for any progress upload
+  try {
+    const progressResult = await grantAchievement(c.env, userId, 'daily_progress_photo', 10, 'Daily Progress Hero')
+    if (progressResult) {
+      achievements.push({
+        code: 'daily_progress_photo',
+        title: 'Daily Progress Hero',
+        description: 'You captured your progress today!',
+        points: 10,
+        category: 'progress'
+      })
+    }
+  } catch (achErr) {
+    console.log('Daily progress achievement error:', achErr)
+  }
+
+  return withCORS(new Response(JSON.stringify({ 
+    key, 
+    success: true,
+    achievements: achievements.length > 0 ? achievements : undefined
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } }), origin, c.req.raw)
 })
 
 // POST /api/upload/presigned - Generate presigned URL for direct R2 upload
@@ -1579,7 +1604,7 @@ app.get('/api/profile', async (c) => {
 
   try {
     const profile = await c.env.DB
-      .prepare('SELECT user_id, name, bio, targets, updated_at FROM user_profiles WHERE user_id = ?')
+      .prepare('SELECT user_id, name, bio, targets, profile_picture, updated_at FROM user_profiles WHERE user_id = ?')
       .bind(userId)
       .first()
     
@@ -1589,11 +1614,12 @@ app.get('/api/profile', async (c) => {
         user_id: userId,
         name: user.email?.split('@')[0] || 'User',
         bio: '',
-        targets: JSON.stringify({})
+        targets: JSON.stringify({}),
+        profile_picture: null
       }
       await c.env.DB
-        .prepare('INSERT INTO user_profiles (user_id, name, bio, targets) VALUES (?, ?, ?, ?)')
-        .bind(defaultProfile.user_id, defaultProfile.name, defaultProfile.bio, defaultProfile.targets)
+        .prepare('INSERT INTO user_profiles (user_id, name, bio, targets, profile_picture) VALUES (?, ?, ?, ?, ?)')
+        .bind(defaultProfile.user_id, defaultProfile.name, defaultProfile.bio, defaultProfile.targets, defaultProfile.profile_picture)
         .run()
       return jsonCORS(origin, defaultProfile)
     }
@@ -1603,6 +1629,7 @@ app.get('/api/profile', async (c) => {
       name: profile.name,
       bio: profile.bio,
       targets: profile.targets ? JSON.parse(profile.targets) : {},
+      profile_picture: profile.profile_picture,
       updated_at: profile.updated_at
     })
   } catch (e: any) {
@@ -1628,10 +1655,11 @@ app.put('/api/profile', async (c) => {
     const name = body.name?.trim() || user.email?.split('@')[0] || 'User'
     const bio = body.bio?.trim() || ''
     const targets = body.targets ? JSON.stringify(body.targets) : '{}'
+    const profilePicture = body.profile_picture || null
     
     await c.env.DB
-      .prepare('INSERT OR REPLACE INTO user_profiles (user_id, name, bio, targets, updated_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)')
-      .bind(userId, name, bio, targets)
+      .prepare('INSERT OR REPLACE INTO user_profiles (user_id, name, bio, targets, profile_picture, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)')
+      .bind(userId, name, bio, targets, profilePicture)
       .run()
     
     return jsonCORS(origin, { success: true })
