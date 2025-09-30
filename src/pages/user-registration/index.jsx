@@ -6,11 +6,11 @@ const UserRegistration = () => {
   return (
     <>
       <Helmet>
-        <title>Join StriveTrack - Start Your Fitness Journey</title>
-        <meta name="description" content="Create your StriveTrack account and begin your fitness transformation journey with progress tracking, social motivation, and personalized insights." />
-        <meta name="keywords" content="fitness registration, join strivetrack, fitness journey, workout tracker, progress photos" />
-        <meta property="og:title" content="Join StriveTrack - Start Your Fitness Journey" />
-        <meta property="og:description" content="Create your account and transform your fitness journey with StriveTrack's comprehensive tracking and social features." />
+        <title>Join StriveTracker | A Complete Fitness Tracker Reimagined</title>
+        <meta name="description" content="Create your StriveTracker account and begin your fitness transformation journey with comprehensive progress tracking, nutrition monitoring, and achievement systems." />
+        <meta name="keywords" content="fitness registration, join strivetracker, fitness journey, workout tracker, progress photos, nutrition tracker" />
+        <meta property="og:title" content="Join StriveTracker | A Complete Fitness Tracker Reimagined" />
+        <meta property="og:description" content="Create your account and transform your fitness journey with StriveTracker's comprehensive tracking and achievement features." />
         <meta property="og:type" content="website" />
       </Helmet>
       

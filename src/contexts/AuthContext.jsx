@@ -63,10 +63,10 @@ export const AuthProvider = ({ children }) => {
       
       // Update document title based on auth state
       if (authUser) {
-        document.title = 'Dashboard - StriveTrack | Continue Your Fitness Journey'
+        document.title = 'Dashboard | StriveTracker - A Complete Fitness Tracker Reimagined'
         profileOperations?.load(authUser?.id) // Fire-and-forget
       } else {
-        document.title = 'Sign In - StriveTrack | Continue Your Fitness Journey'
+        document.title = 'Sign In | StriveTracker - A Complete Fitness Tracker Reimagined'
         profileOperations?.clear()
       }
     }

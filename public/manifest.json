@@ -1,6 +1,7 @@
 {
-  "short_name": "strivetrack",
-  "name": "strivetrack",
+  "short_name": "StriveTracker",
+  "name": "StriveTracker - A Complete Fitness Tracker Reimagined",
+  "description": "Transform your fitness journey with comprehensive tracking, progress photos, nutrition monitoring, and achievement systems.",
   "icons": [
     {
       "src": "favicon.ico",
@@ -10,6 +11,8 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#6366f1",
+  "background_color": "#ffffff",
+  "categories": ["health", "fitness", "lifestyle"],
+  "lang": "en"
 }

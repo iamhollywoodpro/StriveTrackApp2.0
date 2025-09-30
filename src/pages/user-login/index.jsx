@@ -9,9 +9,9 @@ const UserLogin = () => {
   return (
     <>
       <Helmet>
-        <title>Sign In - StriveTrack | Continue Your Fitness Journey</title>
-        <meta name="description" content="Sign in to StriveTrack to continue tracking your fitness transformation with progress photos, workouts, and community support." />
-        <meta name="keywords" content="fitness login, workout tracker, progress photos, fitness app sign in" />
+        <title>Sign In | StriveTracker - A Complete Fitness Tracker Reimagined</title>
+        <meta name="description" content="Sign in to StriveTracker to continue tracking your fitness transformation with progress photos, workouts, nutrition, and achievement systems." />
+        <meta name="keywords" content="fitness login, workout tracker, progress photos, fitness app sign in, nutrition tracker" />
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-br from-background via-muted/20 to-background">
