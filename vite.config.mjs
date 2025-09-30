@@ -11,8 +11,13 @@ export default defineConfig(({ mode }) => {
       outDir: "dist",
       chunkSizeWarningLimit: 2000,
       sourcemap: false,
-      minify: false,
-      cssCodeSplit: true
+      minify: isProd ? 'esbuild' : false,
+      cssCodeSplit: false,
+      rollupOptions: {
+        output: {
+          manualChunks: undefined
+        }
+      }
     },
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || ''),
@@ -20,8 +25,8 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_API_BASE': JSON.stringify(process.env.VITE_API_BASE || ''),
       'import.meta.env.VITE_MEDIA_API_BASE': JSON.stringify(process.env.VITE_MEDIA_API_BASE || ''),
     },
-    // Only enable the heavy tagger plugin in development to reduce build memory
-    plugins: [tsconfigPaths(), react(), ...(isProd ? [] : [tagger()])],
+    // Optimize plugins for build performance
+    plugins: [tsconfigPaths(), react()],
     server: {
       port: 3000,
       host: "0.0.0.0",

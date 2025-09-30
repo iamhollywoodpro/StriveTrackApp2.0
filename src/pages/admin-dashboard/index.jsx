@@ -90,6 +90,25 @@ const AdminDashboard = () => {
     document.body.removeChild(link);
   };
 
+  const flagMedia = async (mediaKey) => {
+    const reason = prompt('Enter reason for flagging this media (optional):');
+    if (reason === null) return; // User cancelled
+    
+    try {
+      await apiSend('POST', `/admin/media/${encodeURIComponent(mediaKey)}/flag`, { reason }, supabase);
+      
+      // Refresh the media list
+      if (selectedUser) {
+        selectUser(selectedUser);
+      }
+      
+      alert('Media flagged successfully');
+    } catch (error) {
+      console.error('Error flagging media:', error);
+      alert('Failed to flag media: ' + (error.message || 'Unknown error'));
+    }
+  };
+
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -297,7 +316,19 @@ const AdminDashboard = () => {
                     ) : (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {userMedia.map((media) => (
-                          <div key={media.key} className="border border-border rounded-lg overflow-hidden">
+                          <div key={media.key} className={`border rounded-lg overflow-hidden ${media.flagged ? 'border-red-300 bg-red-50' : 'border-border'}`}>
+                            {/* Flagged Badge */}
+                            {media.flagged && (
+                              <div className="bg-red-100 border-b border-red-200 px-3 py-2">
+                                <div className="flex items-center space-x-2">
+                                  <Icon name="Flag" size={14} className="text-red-600" />
+                                  <span className="text-xs text-red-800 font-medium">FLAGGED</span>
+                                </div>
+                                {media.flag_reason && (
+                                  <p className="text-xs text-red-600 mt-1">{media.flag_reason}</p>
+                                )}
+                              </div>
+                            )}
                             {/* Media Preview */}
                             <div className="aspect-square bg-muted flex items-center justify-center">
                               {media.contentType?.startsWith('image/') ? (
@@ -350,6 +381,15 @@ const AdminDashboard = () => {
                                   className="flex-1"
                                 >
                                   <Icon name="Download" size={14} />
+                                </Button>
+                                <Button
+                                  variant={media.flagged ? "destructive" : "secondary"}
+                                  size="sm"
+                                  onClick={() => flagMedia(media.key)}
+                                  className="flex-1"
+                                  title={media.flagged ? `Flagged: ${media.flag_reason || 'No reason'}` : 'Flag this media'}
+                                >
+                                  <Icon name="Flag" size={14} />
                                 </Button>
                                 <Button
                                   variant="destructive"

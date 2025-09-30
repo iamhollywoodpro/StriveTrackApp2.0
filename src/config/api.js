@@ -3,7 +3,7 @@ export const API_CONFIG = {
   // Social API (our amazing new backend!) 🚀
   SOCIAL_API_URL: typeof window !== 'undefined' && window.location.hostname === 'localhost' 
     ? 'http://localhost:3003' 
-    : 'https://3003-i8diwm964nb6ljbdespoj-6532622b.e2b.dev',
+    : 'https://strivetrack-media-api.iamhollywoodpro.workers.dev',
   
   // Main API endpoints (if needed)
   MAIN_API_URL: typeof window !== 'undefined' && window.location.hostname === 'localhost' 
