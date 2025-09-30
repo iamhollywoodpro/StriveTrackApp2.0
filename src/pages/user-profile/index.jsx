@@ -42,9 +42,20 @@ const UserProfile = () => {
     if (!user?.id) return;
     
     try {
+      console.log('🔍 Loading profile for user:', user.id);
       const profile = await apiGet('/profile', supabase);
+      console.log('📄 Profile data received:', profile);
       
       if (profile) {
+        // Build profile picture URL if we have a key
+        let profilePictureUrl = null;
+        if (profile.profile_picture) {
+          const { data: sessionData } = await supabase.auth.getSession();
+          const token = sessionData?.session?.access_token;
+          const API_BASE = 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+          profilePictureUrl = `${API_BASE}/media/${encodeURIComponent(profile.profile_picture)}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+        }
+        
         const updatedProfile = {
           id: user.id,
           full_name: profile.name || '',
@@ -52,10 +63,13 @@ const UserProfile = () => {
           height: profile.targets?.height || '',
           weight: profile.targets?.weight || '',
           goals: profile.targets?.goals || '',
-          profile_picture_path: userProfile?.profile_picture_path || null
+          profile_picture_path: profile.profile_picture,
+          profile_picture_url: profilePictureUrl,
+          points: profile.total_points || 0
         };
         
-        setUserProfile(updatedProfile);
+        // Update the auth context with profile data
+        updateProfile(updatedProfile);
         setFormData({
           full_name: updatedProfile.full_name,
           bio: updatedProfile.bio,
@@ -75,35 +89,47 @@ const UserProfile = () => {
 
     try {
       setAchievementsLoading(true);
+      console.log('🏆 Loading achievements for user:', user.id);
 
-      // Get achievements from Worker API
+      // Get achievements from Worker API (100% cloud-native)
       const achievementsData = await apiGet('/achievements', supabase);
+      console.log('🎯 Achievements data received:', achievementsData);
       const earnedAchievements = achievementsData?.items || [];
       
-      // Get all available achievements from Supabase catalog for reference
-      const { data: allAchievementsData, error: achievementsError } = await supabase
-        ?.from('achievements')
-        ?.select('*')
-        ?.eq('is_active', true)
-        ?.order('points', { ascending: false });
+      // Create achievement catalog (no more Supabase dependency!)
+      const achievementCatalog = [
+        { code: 'first_upload', name: 'First Progress Upload!', description: 'You uploaded your first progress photo!', points: 25, category: 'progress' },
+        { code: 'daily_progress_photo', name: 'Daily Progress Hero', description: 'You captured your progress today!', points: 10, category: 'progress' },
+        { code: 'daily_login', name: 'Daily Check-in', description: 'You logged in today!', points: 5, category: 'engagement' },
+        { code: 'first_habit_log', name: 'First Habit Completed', description: 'You completed your first habit!', points: 10, category: 'habits' },
+        { code: 'daily_habit_complete', name: 'Habit Hero', description: 'You completed a habit today!', points: 10, category: 'habits' }
+      ];
+      
+      setAllAchievements(achievementCatalog);
 
-      if (achievementsError) {
-        console.error('Error fetching achievements:', achievementsError);
-      } else {
-        setAllAchievements(allAchievementsData || []);
-      }
-
-      // Process earned achievements from Worker
-      const processedAchievements = earnedAchievements?.map(achievement => ({
-        id: achievement.id,
-        name: achievement.name,
-        description: achievement.description,
-        points: achievement.points,
-        created_at: achievement.created_at,
-        category: achievement.category || 'general'
-      })) || [];
+      // Process earned achievements from Worker with proper display names
+      const processedAchievements = earnedAchievements?.map(achievement => {
+        // Find the achievement definition from our catalog
+        const achievementDef = achievementCatalog.find(def => def.code === achievement.code) || {};
+        
+        return {
+          id: achievement.id,
+          code: achievement.code,
+          name: achievementDef.name || achievement.code,
+          description: achievementDef.description || 'Achievement earned!',
+          points: achievement.points,
+          created_at: achievement.created_at,
+          category: achievementDef.category || 'general'
+        };
+      }) || [];
 
       setUserAchievements(processedAchievements);
+      
+      // Update profile with total points from achievements API
+      if (achievementsData?.total_points !== undefined && userProfile) {
+        const updatedProfile = { ...userProfile, points: achievementsData.total_points };
+        updateProfile(updatedProfile);
+      }
 
     } catch (error) {
       console.error('Error in fetchAchievements:', error);
@@ -213,10 +239,9 @@ const UserProfile = () => {
       const API_BASE = 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
       const newProfilePictureUrl = `${API_BASE}/media/${encodeURIComponent(result.key)}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
-      // Save profile picture to backend
+      // Save profile picture to backend (only send the key)
       await apiSend('PUT', '/profile', {
-        profile_picture: result.key,
-        profile_picture_url: newProfilePictureUrl
+        profile_picture: result.key
       }, supabase);
       
       // Update user profile with new picture URL
