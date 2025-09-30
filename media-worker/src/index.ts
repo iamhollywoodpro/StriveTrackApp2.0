@@ -1674,6 +1674,8 @@ const isAdminUser = (user: any) => {
   return ADMIN_EMAILS.includes(user?.email || '')
 }
 
+// Admin setup endpoint removed for security after account creation
+
 // GET /api/admin/users
 app.get('/api/admin/users', async (c) => {
   const origin = c.req.header('origin') || '*'
