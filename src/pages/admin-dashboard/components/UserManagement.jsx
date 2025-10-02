@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, getFileUrl } from '../../../lib/supabase';
+import { makeAuthenticatedRequest, auth } from '../../../lib/cloudflare';
 import { useAuth } from '../../../contexts/AuthContext';
 import Button from '../../../components/ui/Button';
 import Icon from '../../../components/AppIcon';
@@ -161,11 +161,10 @@ const UserManagement = () => {
         case 'flag':
         case 'unflag': {
           const newStatus = action === 'flag' ? 'flagged' : 'active';
-          const { error } = await supabase
-            ?.from('media_files')
-            ?.update({ status: newStatus, updated_at: new Date().toISOString() })
-            ?.match({ user_id: selectedUser?.id, file_path: media?.fullPath });
-          if (error) throw error;
+          await makeAuthenticatedRequest(`/admin/media/${media?.dbId}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+          });
           await loadUserMedia(selectedUser?.id);
           alert(`Media ${newStatus === 'flagged' ? 'flagged' : 'unflagged'} successfully`);
           break;
@@ -173,9 +172,9 @@ const UserManagement = () => {
         
         case 'delete':
           if (confirm(`Are you sure you want to delete "${media?.name}"? This action cannot be undone.`)) {
-            const { error } = await supabase?.storage?.from('user-media')?.remove([media?.fullPath]);
-            
-            if (error) throw error;
+            await makeAuthenticatedRequest(`/admin/media/${media?.dbId}`, {
+              method: 'DELETE'
+            });
             
             // Reload user media
             await loadUserMedia(selectedUser?.id);
@@ -183,14 +182,19 @@ const UserManagement = () => {
           }
           break;
           
-        case 'download':
-          // Download the file
-          const { data, error } = await supabase?.storage?.from('user-media')?.download(media?.fullPath);
-          
-          if (error) throw error;
+        case 'download': {
+          // Download via R2 proxy
+          const { data: sess } = await auth.getSession();
+          const accessToken = sess?.session?.access_token;
+          const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+          const resp = await fetch(`${API_BASE}/media/${encodeURIComponent(media?.fullPath)}`, {
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+          });
+          if (!resp.ok) throw new Error('Download failed');
+          const blob = await resp.blob();
           
           // Create download link
-          const url = URL.createObjectURL(data);
+          const url = URL.createObjectURL(blob);
           const link = document.createElement('a');
           link.href = url;
           link.download = media?.name;
@@ -199,6 +203,7 @@ const UserManagement = () => {
           document.body?.removeChild(link);
           URL.revokeObjectURL(url);
           break;
+        }
           
         default:
           break;

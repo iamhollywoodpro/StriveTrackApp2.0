@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { makeAuthenticatedRequest } from '../../lib/cloudflare';
 import { apiGet } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import AchievementGrid from './components/AchievementGrid';
@@ -39,7 +39,7 @@ const Achievements = () => {
     try {
       setLoading(true);
 
-      const res = await apiGet('/achievements', supabase);
+      const res = await apiGet('/achievements');
       const items = res?.items ?? [];
 
       // Create map of earned achievements by ID

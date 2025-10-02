@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import Icon from '../../../components/AppIcon';
-import { isAdminUser } from '../../../lib/supabase';
+import { isAdminUser } from '../../../lib/cloudflare';
 
 const LoginForm = () => {
   const { signIn, loading } = useAuth();

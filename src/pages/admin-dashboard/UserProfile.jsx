@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { supabase, isAdminUser } from '../../lib/supabase'
+import { auth, isAdminUser, getCurrentUser, makeAuthenticatedRequest } from '../../lib/cloudflare'
 import { useAuth } from '../../contexts/AuthContext'
 import Icon from '../../components/AppIcon'
 import Button from '../../components/ui/Button'
@@ -22,12 +22,7 @@ const AdminUserProfile = () => {
   const loadUser = async () => {
     try {
       setLoadingUser(true)
-      const { data, error } = await supabase
-        ?.from('profiles')
-        ?.select('id, email, full_name, points, is_admin, is_active, created_at')
-        ?.eq('id', id)
-        ?.single()
-      if (error) throw error
+      const data = await makeAuthenticatedRequest(`/admin/users/${id}`)
       setUser(data)
     } catch (e) {
       setError(e?.message || 'Failed to load user')
@@ -39,16 +34,10 @@ const AdminUserProfile = () => {
   const loadMedia = async () => {
     try {
       setLoadingMedia(true)
-      const { data, error } = await supabase
-        ?.from('media_files')
-        ?.select('*')
-        ?.eq('user_id', id)
-        ?.neq('status', 'deleted')
-        ?.order('uploaded_at', { ascending: false })
-      if (error) throw error
+      const data = await makeAuthenticatedRequest(`/admin/user/${id}/media`)
 
       const processed = await Promise.all(
-        (data || []).map(async (m) => {
+        (data.items || []).map(async (m) => {
           let signedUrl = null
           if (m?.file_path) {
             try {
@@ -91,8 +80,8 @@ const AdminUserProfile = () => {
         await Promise.all([loadUser(), loadMedia()])
         return
       }
-      const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', authUser.id).single()
-      if (profile?.is_admin) {
+      // Check admin status from current user
+      if (isAdminUser(authUser)) {
         await Promise.all([loadUser(), loadMedia()])
       } else {
         navigate('/dashboard')
@@ -127,7 +116,7 @@ const AdminUserProfile = () => {
     try {
       switch (action) {
         case 'download': {
-          const { data: sess } = await supabase.auth.getSession()
+          const { data: sess } = await auth.getSession()
           const token = sess?.session?.access_token
           const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE
           const resp = await fetch(`${API_BASE}/media/${encodeURIComponent(item?.filePath)}`, {
@@ -148,24 +137,21 @@ const AdminUserProfile = () => {
         case 'flag':
         case 'unflag': {
           const newStatus = action === 'flag' ? 'flagged' : 'active'
-          const { error } = await supabase
-            ?.from('media_files')
-            ?.update({ status: newStatus, updated_at: new Date().toISOString() })
-            ?.eq('id', item?.id)
-          if (error) throw error
+          await makeAuthenticatedRequest(`/admin/media/${item.id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status: newStatus })
+          })
           await loadMedia()
           break
         }
         case 'delete': {
           if (!confirm(`Delete "${item?.name}"? This cannot be undone.`)) return
-          const { error: dbError } = await supabase
-            ?.from('media_files')
-            ?.update({ status: 'deleted', updated_at: new Date().toISOString() })
-            ?.eq('id', item?.id)
-          if (dbError) throw dbError
+          await makeAuthenticatedRequest(`/admin/media/${item.id}`, {
+            method: 'DELETE'
+          })
           if (item?.filePath) {
             try {
-              const { data: sess } = await supabase.auth.getSession()
+              const { data: sess } = await auth.getSession()
               const token = sess?.session?.access_token
               const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE
               await fetch(`${API_BASE}/media/${encodeURIComponent(item?.filePath)}`, {

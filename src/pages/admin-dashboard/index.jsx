@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { apiGet, apiSend } from '../../lib/api';
-import { supabase } from '../../lib/supabase';
+
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
@@ -33,7 +33,7 @@ const AdminDashboard = () => {
       setLoading(true);
       setError(null);
       
-      const response = await apiGet('/admin/users', supabase);
+      const response = await apiGet('/admin/users');
       setUsers(response.users || []);
     } catch (error) {
       console.error('Error loading users:', error);
@@ -49,7 +49,7 @@ const AdminDashboard = () => {
       setSelectedUser(userId);
       
       // Load user's media
-      const mediaResponse = await apiGet(`/admin/user/${userId}/media`, supabase);
+      const mediaResponse = await apiGet(`/admin/user/${userId}/media`);
       setUserMedia(mediaResponse.media || []);
     } catch (error) {
       console.error('Error loading user media:', error);
@@ -66,7 +66,7 @@ const AdminDashboard = () => {
     }
 
     try {
-      await apiSend('DELETE', `/admin/media/${encodeURIComponent(mediaKey)}`, null, supabase);
+      await apiSend('DELETE', `/admin/media/${encodeURIComponent(mediaKey)}`, null);
       
       // Refresh the media list
       if (selectedUser) {
@@ -95,7 +95,7 @@ const AdminDashboard = () => {
     if (reason === null) return; // User cancelled
     
     try {
-      await apiSend('POST', `/admin/media/${encodeURIComponent(mediaKey)}/flag`, { reason }, supabase);
+      await apiSend('POST', `/admin/media/${encodeURIComponent(mediaKey)}/flag`, { reason });
       
       // Refresh the media list
       if (selectedUser) {

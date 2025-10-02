@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { auth, isAdminUser as checkIsAdmin, makeAuthenticatedRequest } from '../lib/cloudflare';
 
 console.log('🚀 AuthContext: Pure Cloudflare Architecture - NO SUPABASE!');
 
@@ -121,80 +122,33 @@ export const AuthProvider = ({ children }) => {
 
   // Sign in with Cloudflare API
   const signIn = async (email, password) => {
-    try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        // Store authentication data
-        localStorage.setItem('strivetrack_token', data.token);
-        if (data.user) {
-          localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
-          setUser(data.user);
-          profileOperations.load(data.user.id);
-        }
-        
-        return { user: data.user, error: null };
-      } else {
-        return { user: null, error: { message: data.message || 'Login failed' } };
-      }
-    } catch (error) {
-      console.error('Sign in error:', error);
-      return { user: null, error: { message: 'Network error. Please try again.' } };
+    const result = await auth.signInWithPassword({ email, password });
+    
+    if (result.data.user) {
+      setUser(result.data.user);
+      profileOperations.load(result.data.user.id);
     }
+    
+    return result;
   };
 
   // Sign up with Cloudflare API
   const signUp = async (email, password, metadata = {}) => {
-    try {
-      const response = await fetch(`${API_BASE}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          email, 
-          password, 
-          full_name: metadata.full_name || ''
-        })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.success) {
-        // Store authentication data
-        localStorage.setItem('strivetrack_token', data.token);
-        if (data.user) {
-          localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
-          setUser(data.user);
-          profileOperations.load(data.user.id);
-        }
-        
-        return { user: data.user, error: null };
-      } else {
-        return { user: null, error: { message: data.message || 'Registration failed' } };
-      }
-    } catch (error) {
-      console.error('Sign up error:', error);
-      return { user: null, error: { message: 'Network error. Please try again.' } };
+    const result = await auth.signUp({ email, password, options: { data: metadata } });
+    
+    if (result.data.user) {
+      setUser(result.data.user);
+      profileOperations.load(result.data.user.id);
     }
+    
+    return result;
   };
 
   // Sign out
   const signOut = async () => {
-    try {
-      // Optional: Call logout endpoint to invalidate token on server
-      await makeAuthenticatedRequest('/auth/logout', { method: 'POST' });
-    } catch (error) {
-      // Continue with client-side logout even if server call fails
-      console.error('Server logout error:', error);
-    }
-    
+    const result = await auth.signOut();
     clearAuth();
-    return { error: null };
+    return result;
   };
 
   // Update profile
@@ -229,11 +183,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Check if user is admin (simple email-based check)
-  const isAdminUser = (user) => {
-    const adminEmails = ['iamhollywoodpro@protonmail.com'];
-    return user && adminEmails.includes(user.email?.toLowerCase());
-  };
+
 
   const value = {
     user,
@@ -244,7 +194,7 @@ export const AuthProvider = ({ children }) => {
     signUp,
     signOut,
     updateProfile,
-    isAdminUser: isAdminUser(user),
+    isAdminUser: checkIsAdmin(user),
     makeAuthenticatedRequest
   };
 

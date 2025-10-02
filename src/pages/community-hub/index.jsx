@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { auth } from '../../lib/cloudflare';
 import { useAuth } from '../../contexts/AuthContext';
 import Header from '../../components/ui/Header';
 import SocialFeed from './components/SocialFeed';
@@ -24,7 +24,7 @@ const CommunityHub = () => {
   // Get session for API calls
   useEffect(() => {
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await auth.getSession();
       setSession(session);
     };
     
@@ -301,13 +301,10 @@ const CommunityHub = () => {
   const handleDeleteFriend = async (friendId) => {
     try {
       if (window.confirm('Are you sure you want to remove this friend?')) {
-        // Delete from database
-        const { error } = await supabase?.from('friendships')
-          ?.delete()
-          ?.eq('user_id', user?.id)
-          ?.eq('friend_id', friendId);
+        // Delete from database using API
+        const result = await socialAPI.removeFriend(friendId, session);
         
-        if (!error) {
+        if (result.success) {
           // Remove from local state
           setFriends(prev => prev?.filter(f => f?.id !== friendId));
           setStats(prev => ({
