@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
+import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -8,26 +9,25 @@ export default defineConfig(({ mode }) => {
   const isDev = mode === 'development';
   
   return {
-    // Build optimization for faster builds
+    // BULLETPROOF BUILD CONFIGURATION
     build: {
       outDir: "dist",
-      chunkSizeWarningLimit: 5000, // Increase limit to reduce warnings
-      sourcemap: false, // Disable sourcemaps for faster builds
-      minify: isProd ? 'esbuild' : false, // Fast minification
-      cssCodeSplit: false, // Bundle CSS together for faster loading
-      target: 'esnext', // Modern browsers only for faster builds
+      emptyOutDir: true,
+      chunkSizeWarningLimit: 10000, // Prevent chunk warnings
+      sourcemap: false, // Disable sourcemaps for speed
+      minify: isProd ? 'esbuild' : false, // Conditional minification
+      cssCodeSplit: false, // Single CSS bundle for reliability
+      target: ['es2020', 'chrome60', 'firefox60', 'safari11'], // Broader compatibility
       rollupOptions: {
         output: {
-          manualChunks: undefined, // Disable code splitting for simpler builds
+          manualChunks: undefined, // No manual chunks to prevent issues
+          inlineDynamicImports: true, // Inline imports for simpler build
         },
-        // Reduce bundle analysis time
-        treeshake: isProd ? 'smallest' : false,
+        treeshake: false, // Disable tree shaking to prevent build issues
+        external: [], // No external dependencies
       },
-      // Optimize build performance
-      reportCompressedSize: false, // Skip compression reporting to save time
-      cssMinify: isProd ? 'esbuild' : false, // Fast CSS minification
-      // Set reasonable timeout
-      timeout: 60000, // 60 seconds max
+      reportCompressedSize: false, // Skip reporting for speed
+      cssMinify: isProd ? 'esbuild' : false,
     },
     
     // Environment variable definitions (with fallbacks to prevent undefined errors)
@@ -39,37 +39,37 @@ export default defineConfig(({ mode }) => {
       'import.meta.env.VITE_API_BASE_URL': JSON.stringify(process.env.VITE_API_BASE_URL || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev'),
     },
     
-    // Optimize plugins for build performance - REMOVED @dhiwise/component-tagger for build speed
+    // MINIMAL PLUGIN CONFIGURATION FOR STABILITY
     plugins: [
-      tsconfigPaths(),
       react({
-        // Optimize React plugin for faster builds
         fastRefresh: isDev,
         babel: {
-          plugins: isProd ? [] : undefined, // Skip babel plugins in production for speed
+          plugins: [], // No babel plugins to prevent issues
         },
       }),
-      // NOTE: Removed @dhiwise/component-tagger to fix timeout issues
-      // If needed, re-add it only in development mode: isDev && tagger()
-    ],
+    ].filter(Boolean),
     
-    // Optimize dependency processing
+    // DEPENDENCY OPTIMIZATION
     optimizeDeps: {
       include: [
         'react',
-        'react-dom', 
-        'react-router-dom',
-        'framer-motion',
-        'lucide-react',
-        'date-fns',
-        'clsx',
-        'class-variance-authority',
-        'tailwind-merge'
+        'react-dom',
+        'react-router-dom'
       ],
-      exclude: [
-        '@dhiwise/component-tagger', // Exclude problematic plugin
-      ],
-      force: isProd, // Force re-optimization in production
+      exclude: [],
+      force: true, // Always force fresh optimization
+    },
+    
+    // PATH RESOLUTION
+    resolve: {
+      alias: {
+        '@': path.resolve(__dirname, './src'),
+        'components': path.resolve(__dirname, './src/components'),
+        'pages': path.resolve(__dirname, './src/pages'),
+        'utils': path.resolve(__dirname, './src/utils'),
+        'lib': path.resolve(__dirname, './src/lib'),
+        'contexts': path.resolve(__dirname, './src/contexts'),
+      },
     },
     
     // Improve build performance with caching
