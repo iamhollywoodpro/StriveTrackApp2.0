@@ -3,6 +3,8 @@ import { useAuth } from '../../lib/auth-context';
 import Modal from '../../components/shared/Modal';
 import ProgressBar from '../../components/shared/ProgressBar';
 import HabitChart from '../../components/charts/HabitChart';
+import WeeklyHabitTracker from '../../components/habits/WeeklyHabitTracker';
+import { generateEmojiSuggestions, getBestEmojiSuggestion, emojiCategories } from '../../utils/emojiGenerator';
 
 function HabitsGoals() {
   const { user } = useAuth();
@@ -161,6 +163,25 @@ function HabitsGoals() {
     setShowModal(true);
   };
 
+  // Auto-generate emoji when title changes
+  const handleTitleChange = (type, title) => {
+    const bestEmoji = getBestEmojiSuggestion(title);
+    
+    if (type === 'habit') {
+      setHabitForm(prev => ({
+        ...prev,
+        title,
+        icon: title.trim() ? bestEmoji : '💪'
+      }));
+    } else {
+      setGoalForm(prev => ({
+        ...prev,
+        title,
+        icon: title.trim() ? bestEmoji : '🎯'
+      }));
+    }
+  };
+
   const closeModal = () => {
     setShowModal(false);
     setEditingItem(null);
@@ -280,9 +301,29 @@ function HabitsGoals() {
               <p className="text-slate-600">Build consistency with daily, weekly, and monthly habits</p>
             </div>
 
+            {/* Weekly Habit Trackers */}
+            {habits.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">This Week's Progress</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {habits.slice(0, 4).map(habit => (
+                    <WeeklyHabitTracker 
+                      key={habit.id} 
+                      habit={habit} 
+                      onUpdateProgress={(habitId, date, completed) => {
+                        console.log('Update habit progress:', habitId, date, completed);
+                        // TODO: API call to update progress
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Habit Analytics */}
             {habits.length > 0 && (
               <div className="mb-8">
+                <h3 className="text-lg font-semibold text-slate-900 mb-4">Long-term Analytics</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {habits.slice(0, 2).map(habit => (
                     <HabitChart key={habit.id} habit={habit} />
@@ -473,10 +514,13 @@ function HabitsGoals() {
               <input
                 type="text"
                 value={habitForm.title}
-                onChange={(e) => setHabitForm({...habitForm, title: e.target.value})}
-                placeholder="e.g., Morning Workout"
+                onChange={(e) => handleTitleChange('habit', e.target.value)}
+                placeholder="e.g., Take your vitamins, Morning workout, Drink water"
                 className="input w-full"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                💡 Emoji will be auto-suggested based on your title
+              </p>
             </div>
 
             <div>
@@ -531,14 +575,43 @@ function HabitsGoals() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Icon</label>
-              <div className="grid grid-cols-6 gap-2">
-                {icons.map(icon => (
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Icon {habitForm.title && (
+                  <span className="text-xs text-green-600">(auto-suggested: {getBestEmojiSuggestion(habitForm.title)})</span>
+                )}
+              </label>
+              
+              {/* Auto-suggestions first */}
+              {habitForm.title && (
+                <div className="mb-3">
+                  <p className="text-xs text-slate-600 mb-2">Suggested for "{habitForm.title}":</p>
+                  <div className="flex flex-wrap gap-2">
+                    {generateEmojiSuggestions(habitForm.title).slice(0, 8).map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setHabitForm({...habitForm, icon: emoji})}
+                        className={`p-2 text-xl border rounded-lg hover:bg-slate-50 transition-all ${
+                          habitForm.icon === emoji ? 'border-green-500 bg-green-50 ring-2 ring-green-200' : 'border-slate-200'
+                        }`}
+                        title={`Use ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Manual selection */}
+              <p className="text-xs text-slate-600 mb-2">Or choose manually:</p>
+              <div className="grid grid-cols-8 gap-2">
+                {Object.values(emojiCategories).flat().slice(0, 16).map(icon => (
                   <button
                     key={icon}
                     type="button"
                     onClick={() => setHabitForm({...habitForm, icon})}
-                    className={`p-2 text-xl border rounded-lg hover:bg-slate-50 ${
+                    className={`p-2 text-lg border rounded-lg hover:bg-slate-50 transition-all ${
                       habitForm.icon === icon ? 'border-primary-500 bg-primary-50' : 'border-slate-200'
                     }`}
                   >
@@ -564,10 +637,13 @@ function HabitsGoals() {
               <input
                 type="text"
                 value={goalForm.title}
-                onChange={(e) => setGoalForm({...goalForm, title: e.target.value})}
-                placeholder="e.g., Lose Weight"
+                onChange={(e) => handleTitleChange('goal', e.target.value)}
+                placeholder="e.g., Lose weight, Run marathon, Build muscle"
                 className="input w-full"
               />
+              <p className="text-xs text-slate-500 mt-1">
+                💡 Emoji will be auto-suggested based on your title
+              </p>
             </div>
 
             <div>
@@ -643,14 +719,43 @@ function HabitsGoals() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Icon</label>
-              <div className="grid grid-cols-6 gap-2">
-                {icons.map(icon => (
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Icon {goalForm.title && (
+                  <span className="text-xs text-green-600">(auto-suggested: {getBestEmojiSuggestion(goalForm.title)})</span>
+                )}
+              </label>
+              
+              {/* Auto-suggestions first */}
+              {goalForm.title && (
+                <div className="mb-3">
+                  <p className="text-xs text-slate-600 mb-2">Suggested for "{goalForm.title}":</p>
+                  <div className="flex flex-wrap gap-2">
+                    {generateEmojiSuggestions(goalForm.title).slice(0, 8).map(emoji => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setGoalForm({...goalForm, icon: emoji})}
+                        className={`p-2 text-xl border rounded-lg hover:bg-slate-50 transition-all ${
+                          goalForm.icon === emoji ? 'border-green-500 bg-green-50 ring-2 ring-green-200' : 'border-slate-200'
+                        }`}
+                        title={`Use ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Manual selection */}
+              <p className="text-xs text-slate-600 mb-2">Or choose manually:</p>
+              <div className="grid grid-cols-8 gap-2">
+                {Object.values(emojiCategories).flat().slice(0, 16).map(icon => (
                   <button
                     key={icon}
                     type="button"
                     onClick={() => setGoalForm({...goalForm, icon})}
-                    className={`p-2 text-xl border rounded-lg hover:bg-slate-50 ${
+                    className={`p-2 text-lg border rounded-lg hover:bg-slate-50 transition-all ${
                       goalForm.icon === icon ? 'border-primary-500 bg-primary-50' : 'border-slate-200'
                     }`}
                   >

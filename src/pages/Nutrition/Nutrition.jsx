@@ -3,6 +3,8 @@ import { useAuth } from '../../lib/auth-context';
 import Modal from '../../components/shared/Modal';
 import ProgressBar from '../../components/shared/ProgressBar';
 import NutritionChart from '../../components/charts/NutritionChart';
+import FoodSearchModal from '../../components/nutrition/FoodSearchModal';
+import RecipeSuggestions from '../../components/nutrition/RecipeSuggestions';
 
 function Nutrition() {
   const { user } = useAuth();
@@ -11,6 +13,8 @@ function Nutrition() {
   const [modalType, setModalType] = useState('meal'); // 'meal', 'food', 'water'
   const [editingItem, setEditingItem] = useState(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showFoodSearch, setShowFoodSearch] = useState(false);
+  const [currentMealType, setCurrentMealType] = useState('breakfast');
 
   // Nutrition data
   const [dailyGoals, setDailyGoals] = useState({
@@ -214,6 +218,45 @@ function Nutrition() {
     }));
   };
 
+  const openFoodSearch = (mealType) => {
+    setCurrentMealType(mealType);
+    setShowFoodSearch(true);
+  };
+
+  const handleFoodSelect = (foodData) => {
+    // Add selected food to meals
+    const newMeal = {
+      id: Date.now(),
+      name: foodData.name,
+      type: currentMealType,
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      calories: foodData.calories,
+      protein: foodData.protein,
+      carbs: foodData.carbs,
+      fat: foodData.fat,
+      fiber: foodData.fiber,
+      foods: [foodData.name, ...(foodData.selectedAddOns?.map(a => a.name) || [])],
+      notes: `${foodData.quantity} serving${foodData.quantity !== 1 ? 's' : ''}${foodData.selectedAddOns?.length > 0 ? ` with ${foodData.selectedAddOns.map(a => a.name).join(', ')}` : ''}`
+    };
+    
+    setMeals([...meals, newMeal]);
+    
+    // Update today's intake
+    setTodayIntake(prev => ({
+      calories: prev.calories + foodData.calories,
+      protein: prev.protein + foodData.protein,
+      carbs: prev.carbs + foodData.carbs,
+      fat: prev.fat + foodData.fat,
+      fiber: prev.fiber + foodData.fiber,
+      water: prev.water
+    }));
+  };
+
+  const handleRecipeSelect = (recipe) => {
+    console.log('Selected recipe:', recipe);
+    // TODO: Open recipe details modal
+  };
+
   const getMealsByType = (type) => meals.filter(meal => meal.type === type);
 
   const getMacroPercentage = (current, goal) => {
@@ -305,6 +348,14 @@ function Nutrition() {
             </div>
 
             <NutritionChart goals={dailyGoals} />
+            
+            {/* Recipe Suggestions */}
+            <div className="mt-8">
+              <RecipeSuggestions 
+                selectedFoods={meals.slice(-5)} // Last 5 meals for suggestions
+                onSelectRecipe={handleRecipeSelect}
+              />
+            </div>
           </div>
         )}
 
@@ -428,8 +479,9 @@ function Nutrition() {
                       <h3 className="font-semibold text-slate-900">{type.label}</h3>
                     </div>
                     <button
-                      onClick={() => openModal('meal')}
-                      className="text-slate-400 hover:text-slate-600"
+                      onClick={() => openFoodSearch(type.value)}
+                      className="text-slate-400 hover:text-slate-600 text-2xl"
+                      title={`Add ${type.label}`}
                     >
                       +
                     </button>
@@ -455,7 +507,7 @@ function Nutrition() {
                       <div className="text-center py-8 text-slate-500">
                         <p className="text-sm">No {type.label.toLowerCase()} logged yet</p>
                         <button
-                          onClick={() => openModal('meal')}
+                          onClick={() => openFoodSearch(type.value)}
                           className="text-primary-500 hover:text-primary-600 text-sm mt-1"
                         >
                           Add {type.label}
@@ -823,6 +875,14 @@ function Nutrition() {
           </div>
         )}
       </Modal>
+
+      {/* Enhanced Food Search Modal */}
+      <FoodSearchModal
+        isOpen={showFoodSearch}
+        onClose={() => setShowFoodSearch(false)}
+        onSelectFood={handleFoodSelect}
+        mealType={currentMealType}
+      />
     </div>
   );
 }
