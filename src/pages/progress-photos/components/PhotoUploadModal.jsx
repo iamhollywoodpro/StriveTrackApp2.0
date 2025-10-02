@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { supabase } from '../../../lib/supabase';
+import { auth } from '../../../lib/cloudflare';
 import { uploadToR2, validateFile, verifyUpload } from '../../../lib/simpleUpload';
 import { useConfetti } from '../../../hooks/useConfetti';
 
@@ -79,7 +79,7 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       };
 
       // Use simple, reliable upload system
-      const result = await uploadToR2(selectedFile, supabase, progressCallback);
+      const result = await uploadToR2(selectedFile, auth, progressCallback);
       
       if (!result?.key) {
         throw new Error('Upload failed - no file key returned');
@@ -96,7 +96,7 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       setUploadStatus('Verifying upload...');
       
       // Verify the upload was successful
-      const isVerified = await verifyUpload(result.key, supabase);
+      const isVerified = await verifyUpload(result.key, auth);
       if (!isVerified) {
         throw new Error('Upload verification failed. Please try again.');
       }
@@ -116,7 +116,7 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
 
       // Save to backend
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: sessionData } = await auth.getSession();
         const token = sessionData?.session?.access_token;
         const API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
         
@@ -135,7 +135,7 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       }
 
       // Get session token for building the view URL
-      const session = await supabase?.auth?.getSession();
+      const session = await auth?.getSession();
       const accessToken = session?.data?.session?.access_token;
       
       // Build the media view URL

@@ -30,13 +30,9 @@ const UserManagement = () => {
       setLoading(true);
       
       // Load from profiles directly (no RPC)
-      const { data, error } = await supabase
-        ?.from('profiles')
-        ?.select('id, email, full_name, is_admin, is_active, created_at, bio, goals, profile_picture_url')
-        ?.order('created_at', { ascending: false });
-      if (error) throw error;
+      const data = await makeAuthenticatedRequest('/admin/users');
 
-      const processed = (data || []).map((u) => ({
+      const processed = (data.items || []).map((u) => ({
         id: u?.id,
         email: u?.email,
         full_name: u?.full_name,
@@ -69,11 +65,9 @@ const UserManagement = () => {
       setDeleteLoading(userToDelete?.id);
       
       // Soft disable user in profiles instead of RPC delete
-      const { error } = await supabase
-        ?.from('profiles')
-        ?.update({ is_active: false })
-        ?.eq('id', userToDelete?.id);
-      if (error) throw error;
+      await makeAuthenticatedRequest(`/admin/users/${userToDelete?.id}/disable`, {
+        method: 'PUT'
+      });
 
       alert(`User "${userToDelete?.email}" has been disabled (soft deleted).`);
       await loadUsers();
@@ -91,24 +85,10 @@ const UserManagement = () => {
 
     setMediaLoading(true);
     try {
-      // List all media files for the user
-      const { data: files, error } = await supabase?.storage?.from('user-media')?.list(`${userId}`, {
-          limit: 1000,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
+      // Get all media files for the user from API
+      const data = await makeAuthenticatedRequest(`/admin/user/${userId}/media`);
 
-      if (error) throw error;
-
-      // Fetch media records from DB to get statuses and IDs for admin actions
-      const { data: mediaRecords } = await supabase
-        ?.from('media_files')
-        ?.select('id, file_path, status')
-        ?.eq('user_id', userId)
-        ?.neq('status', 'deleted');
-
-      const recordMap = Object.fromEntries((mediaRecords || []).map(r => [r.file_path, r]));
-
-      // Generate signed URLs for all media files and merge DB status
+      // Generate URLs for all media files
       const mediaWithUrls = await Promise.all(
         (files || [])
           ?.filter(file => {

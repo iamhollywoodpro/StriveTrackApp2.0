@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { supabase } from '../../../lib/supabase';
+// Pure Cloudflare API - no Supabase imports needed
 import { apiSend } from '../../../lib/api';
 import Icon from '../../../components/ui/Icon';
 import Button from '../../../components/ui/Button';
@@ -29,7 +29,7 @@ const QuickProgressUpdate = ({ goals, onRefresh }) => {
       // Update via Worker API
       await apiSend('PUT', `/goals/${goalId}`, {
         progress: newProgress
-      }, supabase);
+      });
 
       // Refresh data
       if (onRefresh) {

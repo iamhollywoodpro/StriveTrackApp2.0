@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+// Pure Cloudflare API - no Supabase imports needed
 import { apiGet, apiSend } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
@@ -25,7 +25,7 @@ const HabitGoalTracker = () => {
     if (!user?.id) return;
 
     try {
-      const res = await apiGet('/habits', supabase);
+      const res = await apiGet('/habits');
       const items = res?.items ?? res ?? [];
       setHabits(items);
     } catch (error) {
@@ -39,7 +39,7 @@ const HabitGoalTracker = () => {
     if (!user?.id) return;
 
     try {
-      const res = await apiGet('/goals', supabase);
+      const res = await apiGet('/goals');
       const data = res?.items ?? res ?? [];
       // Transform goals data to match component expectations
       const transformedGoals = data.map(goal => {
@@ -101,7 +101,7 @@ const HabitGoalTracker = () => {
         emoji: newHabit?.emoji || '💪',
         difficulty: newHabit?.difficulty || 'Medium',
         days_of_week: newHabit?.days_of_week || [0, 1, 2, 3, 4, 5, 6]
-      }, supabase);
+      });
 
       // Success - refresh habits list and close modal
       await fetchHabits();
@@ -123,7 +123,7 @@ const HabitGoalTracker = () => {
       const targetDateStr = dateStr || new Date()?.toISOString()?.split('T')?.[0];
 
       // Toggle via Worker API (remove if already completed)
-      await apiSend('POST', `/habits/${habitId}/log`, { date: targetDateStr, remove: !!completed }, supabase);
+      await apiSend('POST', `/habits/${habitId}/log`, { date: targetDateStr, remove: !!completed });
 
       // No need to refresh habits list since we use optimistic updates
       // await fetchHabits(); // Commented out for speed
@@ -147,7 +147,7 @@ const HabitGoalTracker = () => {
         title: newGoal?.title?.trim(),
         description: newGoal?.description?.trim() || null,
         target_date: newGoal?.deadline ? new Date(newGoal.deadline).toISOString().slice(0,10) : null
-      }, supabase);
+      });
 
       // Success - refresh goals list and close modal
       await fetchGoals();
@@ -165,7 +165,7 @@ const HabitGoalTracker = () => {
     if (!user?.id) return;
 
     try {
-      await apiSend('DELETE', `/habits/${habitId}`, null, supabase);
+      await apiSend('DELETE', `/habits/${habitId}`, null);
       // Refresh habits list
       await fetchHabits();
     } catch (error) {
@@ -180,7 +180,7 @@ const HabitGoalTracker = () => {
     if (!user?.id) return;
 
     try {
-      await apiSend('DELETE', `/goals/${goalId}`, null, supabase);
+      await apiSend('DELETE', `/goals/${goalId}`, null);
       // Refresh goals list
       await fetchGoals();
     } catch (error) {

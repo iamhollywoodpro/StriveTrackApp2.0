@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
-import { supabase } from '../../../lib/supabase';
+// Pure Cloudflare API - no Supabase imports needed
 import { apiSend } from '../../../lib/api';
 import Icon from '../../../components/ui/Icon';
 import Button from '../../../components/ui/Button';
@@ -32,7 +32,7 @@ const InteractiveHabits = ({ habits, habitLogs, onRefresh }) => {
       await apiSend('POST', `/habits/${habitId}/log`, { 
         date: today, 
         remove: !!isCompleted 
-      }, supabase);
+      });
 
       // Refresh data
       if (onRefresh) {

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
-import { uploadFile, getFileUrl, deleteFile } from '../../lib/supabase';
+import { auth, storage } from '../../lib/cloudflare';
 import { apiGet, apiSend } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
@@ -43,14 +42,14 @@ const UserProfile = () => {
     
     try {
       console.log('🔍 Loading profile for user:', user.id);
-      const profile = await apiGet('/profile', supabase);
+      const profile = await apiGet('/profile');
       console.log('📄 Profile data received:', profile);
       
       if (profile) {
         // Build profile picture URL if we have a key
         let profilePictureUrl = null;
         if (profile.profile_picture) {
-          const { data: sessionData } = await supabase.auth.getSession();
+          const { data: sessionData } = await auth.getSession();
           const token = sessionData?.session?.access_token;
           const API_BASE = 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
           profilePictureUrl = `${API_BASE}/media/${encodeURIComponent(profile.profile_picture)}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
@@ -92,7 +91,7 @@ const UserProfile = () => {
       console.log('🏆 Loading achievements for user:', user.id);
 
       // Get achievements from Worker API (100% cloud-native)
-      const achievementsData = await apiGet('/achievements', supabase);
+      const achievementsData = await apiGet('/achievements');
       console.log('🎯 Achievements data received:', achievementsData);
       const earnedAchievements = achievementsData?.items || [];
       
@@ -168,7 +167,7 @@ const UserProfile = () => {
         }
       };
       
-      await apiSend('PUT', '/profile', profileData, supabase);
+      await apiSend('PUT', '/profile', profileData);
       
       // Update local userProfile state
       const updatedProfile = {
@@ -216,7 +215,7 @@ const UserProfile = () => {
           const urlParts = userProfile.profile_picture_url.split('/api/media/');
           if (urlParts.length > 1) {
             const oldKey = decodeURIComponent(urlParts[1].split('?')[0]);
-            await apiSend('DELETE', `/media/${encodeURIComponent(oldKey)}`, null, supabase);
+            await apiSend('DELETE', `/media/${encodeURIComponent(oldKey)}`, null);
           }
         } catch (deleteError) {
           console.warn('Could not delete old profile picture:', deleteError);
@@ -231,10 +230,10 @@ const UserProfile = () => {
       };
       
       // Use the same reliable upload system as progress photos
-      const result = await uploadToR2(file, supabase, progressCallback);
+      const result = await uploadToR2(file, progressCallback);
       
       // Build the media URL with auth token
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await auth.getSession();
       const token = sessionData?.session?.access_token;
       const API_BASE = 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
       const newProfilePictureUrl = `${API_BASE}/media/${encodeURIComponent(result.key)}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
@@ -242,7 +241,7 @@ const UserProfile = () => {
       // Save profile picture to backend (only send the key)
       await apiSend('PUT', '/profile', {
         profile_picture: result.key
-      }, supabase);
+      });
       
       // Update user profile with new picture URL
       const updatedProfile = {

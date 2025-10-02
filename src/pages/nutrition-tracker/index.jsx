@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+// Pure Cloudflare API - no Supabase imports needed
 import { apiGet, apiSend } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import Icon from '../../components/AppIcon';
@@ -39,7 +39,7 @@ const NutritionTracker = () => {
       
       // Get today's nutrition entries from Worker
       const today = new Date()?.toISOString()?.split('T')?.[0];
-      const res = await apiGet(`/nutrition?date=${today}`, supabase);
+      const res = await apiGet(`/nutrition?date=${today}`);
       const entries = res?.items ?? res ?? [];
 
       // Transform nutrition entries to meals structure
@@ -150,7 +150,7 @@ const NutritionTracker = () => {
         carbs: recipe?.carbs || 0,
         fat: recipe?.fat || 0,
         date: new Date()?.toISOString()?.split('T')?.[0]
-      }, supabase);
+      });
 
       // Refresh nutrition data
       fetchNutritionData();
@@ -188,7 +188,7 @@ const NutritionTracker = () => {
 
       console.log('📤 Sending food data:', foodData);
 
-      await apiSend('POST', '/nutrition', foodData, supabase);
+      await apiSend('POST', '/nutrition', foodData);
 
       console.log('✅ Food added successfully');
       
@@ -215,7 +215,7 @@ const NutritionTracker = () => {
     if (!user?.id) return;
 
     try {
-      await apiSend('DELETE', `/nutrition/${foodId}`, null, supabase);
+      await apiSend('DELETE', `/nutrition/${foodId}`, null);
 
       // Refresh the data to update all meal sections
       await fetchNutritionData();

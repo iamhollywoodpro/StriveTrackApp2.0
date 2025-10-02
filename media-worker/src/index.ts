@@ -4,8 +4,7 @@ import { Hono } from 'hono'
 export type Bindings = {
   R2_BUCKET: R2Bucket
   DB: D1Database
-  SUPABASE_URL: string
-  SUPABASE_ANON_KEY: string
+  JWT_SECRET: string
 }
 
 // Admin email list
@@ -308,19 +307,11 @@ async function verifyJWTToken(env: Bindings, token: string) {
   }
 }
 
-// Fallback: also try Supabase for existing users during transition
-async function verifySupabaseToken(env: Bindings, token: string) {
-  if (!token) return null
-  try {
-    const res = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, {
-      headers: { Authorization: `Bearer ${token}`, apikey: env.SUPABASE_ANON_KEY }
-    })
-    if (!res.ok) return null
-    const user = await res.json()
-    return user // { id, email, ... }
-  } catch (_) {
-    return null
-  }
+// Pure Cloudflare auth - no Supabase dependency
+async function verifyCloudflareToken(env: Bindings, token: string) {
+  // Pure Cloudflare D1 token verification would go here
+  // For now, just return null as this requires implementing JWT verification
+  return null
 }
 
 // Unified token verification - try both methods
@@ -328,9 +319,9 @@ async function verifyToken(env: Bindings, token: string) {
   // Try Cloudflare auth first
   let user = await verifyJWTToken(env, token)
   
-  // Fallback to Supabase for transition period
+  // Use pure Cloudflare verification (placeholder for now)
   if (!user) {
-    user = await verifySupabaseToken(env, token)
+    user = await verifyCloudflareToken(env, token)
   }
   
   return user
@@ -366,8 +357,7 @@ app.get('/api/system-test', async (c) => {
   try {
     // Test 1: Environment variables
     results.tests.env = {
-      supabase_url: !!c.env.SUPABASE_URL,
-      supabase_anon_key: !!c.env.SUPABASE_ANON_KEY,
+      jwt_secret: !!c.env.JWT_SECRET,
       r2_bucket: !!c.env.R2_BUCKET,
       d1_db: !!c.env.DB
     }
@@ -396,18 +386,14 @@ app.get('/api/system-test', async (c) => {
       results.tests.r2_storage = { status: 'error', error: error.message }
     }
     
-    // Test 4: Supabase connectivity (without user token)
+    // Test 4: JWT Secret configuration
     try {
-      const response = await fetch(`${c.env.SUPABASE_URL}/rest/v1/`, {
-        headers: { 'apikey': c.env.SUPABASE_ANON_KEY }
-      })
-      results.tests.supabase_connectivity = { 
-        status: response.ok ? 'ok' : 'error', 
-        error: response.ok ? null : `HTTP ${response.status}`,
-        response_status: response.status
+      results.tests.jwt_secret = { 
+        status: c.env.JWT_SECRET ? 'ok' : 'error',
+        error: c.env.JWT_SECRET ? null : 'JWT secret not configured'
       }
     } catch (error: any) {
-      results.tests.supabase_connectivity = { status: 'error', error: error.message }
+      results.tests.jwt_secret = { status: 'error', error: error.message }
     }
     
     results.overall_status = Object.values(results.tests).every((test: any) => test.status === 'ok') ? 'healthy' : 'degraded'

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+// Pure Cloudflare API - no Supabase imports needed
 import Header from '../../components/ui/Header';
 import UserLevelCard from './components/UserLevelCard';
 import StatsGrid from './components/StatsGrid';
@@ -50,7 +50,7 @@ const Dashboard = () => {
       setLoading(true);
 
       // 1) Points via Worker achievements endpoint
-      const achRes = await apiGet('/achievements', supabase);
+      const achRes = await apiGet('/achievements');
       const totalPoints = achRes?.total_points || 0;
       const currentLevel = Math.floor(totalPoints / 100) + 1;
       const currentLevelPoints = totalPoints % 100;
@@ -68,10 +68,10 @@ const Dashboard = () => {
       const from = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
       const [goalsResult, habitsResult, mediaResult, habitsWithLogsResult] = await Promise.allSettled([
-        apiGet('/goals', supabase),
-        apiGet('/habits', supabase),
-        apiGet('/media', supabase),
-        apiGet(`/habits?from=${from}&to=${to}`, supabase)
+        apiGet('/goals'),
+        apiGet('/habits'),
+        apiGet('/media'),
+        apiGet(`/habits?from=${from}&to=${to}`)
       ]);
 
       const goalsData = goalsResult.status === 'fulfilled' ? (goalsResult.value?.items ?? goalsResult.value ?? []) : [];
@@ -116,7 +116,7 @@ const Dashboard = () => {
     if (!user?.id) return;
 
     try {
-      const res = await apiGet('/achievements', supabase);
+      const res = await apiGet('/achievements');
       const items = res?.items || [];
       const formatted = items.map(a => ({
         id: a?.id,
@@ -140,7 +140,7 @@ const Dashboard = () => {
     if (!user?.id) return;
 
     try {
-      const res = await apiGet('/goals', supabase);
+      const res = await apiGet('/goals');
       const data = res?.items ?? res ?? [];
       const formattedGoals = data.map(goal => {
         // Ensure we have a valid numeric progress value (same logic as habit-goal-tracker)
@@ -185,7 +185,7 @@ const Dashboard = () => {
       const from = sevenDaysAgo.toISOString().split('T')[0];
       const to = today.toISOString().split('T')[0];
 
-      const res = await apiGet(`/habits?from=${from}&to=${to}`, supabase);
+      const res = await apiGet(`/habits?from=${from}&to=${to}`);
       const habits = res?.items ?? res ?? [];
       const logs = res?.logs ?? [];
 
@@ -206,7 +206,7 @@ const Dashboard = () => {
       const activities = [];
 
       // Media uploads via Worker
-      const mediaRes = await apiGet('/media', supabase);
+      const mediaRes = await apiGet('/media');
       (mediaRes?.items || []).slice(0, 2).forEach((m, idx) => {
         activities.push({
           id: `media_${idx}_${m.key}`,
@@ -219,7 +219,7 @@ const Dashboard = () => {
       });
 
       // Recent goals via Worker
-      const goalsRes = await apiGet('/goals', supabase);
+      const goalsRes = await apiGet('/goals');
       (goalsRes?.items || []).slice(0, 2).forEach(g => {
         activities.push({
           id: `goal_${g?.id}`,
@@ -235,7 +235,7 @@ const Dashboard = () => {
       const today = new Date();
       const to = today.toISOString().split('T')[0];
       const from = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      const habitsWithLogs = await apiGet(`/habits?from=${from}&to=${to}`, supabase);
+      const habitsWithLogs = await apiGet(`/habits?from=${from}&to=${to}`);
       const habitsMap = new Map();
       (habitsWithLogs?.items || []).forEach(h => habitsMap.set(h.id, h));
       (habitsWithLogs?.logs || []).slice(0, 2).forEach((log, idx) => {
@@ -283,7 +283,7 @@ const Dashboard = () => {
       await apiSend('POST', `/habits/${habitId}/log`, { 
         date: today, 
         remove: !!isCompleted 
-      }, supabase);
+      });
 
       // Refresh data
       await refreshData();

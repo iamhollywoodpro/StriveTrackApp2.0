@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase } from '../../lib/supabase';
+import { auth } from '../../lib/cloudflare';
 import { apiGet } from '../../lib/api';
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
@@ -36,9 +36,9 @@ const ProgressPhotos = () => {
     try {
       setLoading(true);
       
-      const res = await apiGet('/media', supabase);
+      const res = await apiGet('/media');
       const items = Array.isArray(res?.items) ? res.items : [];
-      const { data: sessionData } = await supabase.auth.getSession();
+      const { data: sessionData } = await auth.getSession();
       const token = sessionData?.session?.access_token || '';
       const API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 
@@ -171,7 +171,7 @@ const ProgressPhotos = () => {
   const handlePhotoDelete = async (photo) => {
     if (window.confirm('Are you sure you want to delete this photo?')) {
       try {
-        const session = await supabase?.auth?.getSession();
+        const session = await auth?.getSession();
         const accessToken = session?.data?.session?.access_token;
         const API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
         const resp = await fetch(`${API_BASE}/media/${encodeURIComponent(photo?.id)}`, {

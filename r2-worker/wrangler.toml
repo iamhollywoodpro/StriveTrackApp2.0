@@ -10,6 +10,5 @@ bucket_name = "strivetrack-media"
 [vars]
 # Configure these via wrangler secret put in production
 # ADMIN_EMAIL will be used to grant full admin access
-# SUPABASE_URL and SUPABASE_ANON_KEY are used to validate Supabase user tokens
-# SUPABASE_SERVICE_ROLE (optional) lets the Worker write to Supabase DB bypassing RLS for media_files metadata
+# JWT_SECRET is used to validate pure Cloudflare JWT tokens
 # ADMIN_EMAIL = "iamhollywoodpro@protonmail.com"

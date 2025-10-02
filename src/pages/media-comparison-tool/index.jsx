@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { supabase, getFileUrl } from '../../lib/supabase';
+import { makeAuthenticatedRequest } from '../../lib/cloudflare';
 import Header from '../../components/ui/Header';
 import Button from '../../components/ui/Button';
 import Icon from '../../components/AppIcon';
@@ -32,34 +32,22 @@ const MediaComparisonTool = () => {
 
     setLoading(true);
     try {
-      // List files from user's folder
-      const { data: files, error } = await supabase?.storage?.from('user-media')?.list(`${user?.id}/progress`, {
-          limit: 100,
-          sortBy: { column: 'created_at', order: 'desc' }
-        });
-
-      if (error) throw error;
-
-      // Generate signed URLs for media files
-      const mediaWithUrls = await Promise.all(
-        files
-          ?.filter(file => {
-            const isMedia = /\.(jpg|jpeg|png|gif|webp|mp4|mov|avi|webm)$/i?.test(file?.name);
-            return isMedia && file?.name !== '.emptyFolderPlaceholder';
-          })
-          ?.map(async (file) => {
-            const filePath = `${user?.id}/progress/${file?.name}`;
-            const { url } = await getFileUrl('user-media', filePath, false);
-            
-            return {
-              ...file,
-              fullPath: filePath,
-              url,
-              type: /\.(mp4|mov|avi|webm)$/i?.test(file?.name) ? 'video' : 'image',
-              date: new Date(file.created_at || file.updated_at)?.toLocaleDateString()
-            };
-          }) || []
-      );
+      // Get media files from Cloudflare API
+      const data = await makeAuthenticatedRequest('/media?type=progress');
+      
+      const API_BASE = import.meta.env?.VITE_MEDIA_API_BASE;
+      
+      const mediaWithUrls = (data.items || []).map((m) => {
+        const url = m?.file_path ? `${API_BASE}/media/${encodeURIComponent(m.file_path)}` : null;
+        
+        return {
+          name: m?.filename || m?.file_path?.split('/')?.pop(),
+          fullPath: m?.file_path,
+          url,
+          type: m?.media_type || (m?.mime_type?.startsWith('video') ? 'video' : 'image'),
+          date: m?.uploaded_at ? new Date(m?.uploaded_at).toLocaleDateString() : 'Unknown'
+        };
+      });
 
       setMediaFiles(mediaWithUrls?.filter(media => media?.url));
     } catch (error) {

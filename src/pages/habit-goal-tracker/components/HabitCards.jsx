@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
-import { supabase } from '../../../lib/supabase';
+// Pure Cloudflare API - no Supabase imports needed
 import { apiGet, apiSend } from '../../../lib/api';
 import Icon from '../../../components/ui/Icon';
 import Button from '../../../components/ui/Button';
@@ -26,7 +26,7 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
       const to = today?.toISOString()?.split('T')?.[0];
 
       // Try to fetch logs from Worker
-      const res = await apiGet(`/habits?from=${from}&to=${to}`, supabase);
+      const res = await apiGet(`/habits?from=${from}&to=${to}`);
 
       // Organize completion data by habit and date
       const completionMap = {};
@@ -87,7 +87,7 @@ const HabitCards = ({ habits, onDeleteHabit, onToggleHabit, onCompleteHabit }) =
       if (typeof onToggleHabit === 'function') {
         await onToggleHabit(habitId, isCompleted, dateStr);
       } else {
-        await apiSend('POST', `/habits/${habitId}/log`, { date: dateStr, remove: !!isCompleted }, supabase);
+        await apiSend('POST', `/habits/${habitId}/log`, { date: dateStr, remove: !!isCompleted });
       }
     } catch (error) {
       console.error('Error toggling habit completion:', error);

@@ -1,5 +1,7 @@
-// Bulletproof Media Upload System - NEVER FAILS AGAIN!
+// Bulletproof Media Upload System - 100% PURE CLOUDFLARE - NO SUPABASE!
 // Multiple upload strategies with automatic fallbacks and retry mechanisms
+
+import { auth, getAuthToken } from './cloudflare';
 
 const API_BASE = process.env.API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 const MEDIA_API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
@@ -40,14 +42,6 @@ export const validateFile = (file) => {
   return true;
 };
 
-// Generate unique file key for R2 storage
-const generateFileKey = (file, userId) => {
-  const timestamp = Date.now();
-  const randomId = Math.random().toString(36).substring(2, 15);
-  const fileExtension = file.name.split('.').pop();
-  return `users/${userId}/progress/${timestamp}-${randomId}.${fileExtension}`;
-};
-
 // Enhanced retry mechanism with exponential backoff
 const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
   let lastError;
@@ -69,13 +63,11 @@ const retryWithBackoff = async (fn, maxRetries = 3, baseDelay = 1000) => {
   throw lastError;
 };
 
-// Method 1: Direct R2 Upload via Worker (fastest and most reliable)
-export const uploadToR2Direct = async (file, supabase, progressCallback) => {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
-  const userId = sessionData?.session?.user?.id;
+// Method 1: Direct R2 Upload via Worker (fastest and most reliable) - PURE CLOUDFLARE
+export const uploadToR2Direct = async (file, authObject = null, progressCallback) => {
+  const token = getAuthToken();
   
-  if (!token || !userId) {
+  if (!token) {
     throw new Error('Authentication required for upload');
   }
 
@@ -169,10 +161,9 @@ export const uploadToR2Direct = async (file, supabase, progressCallback) => {
   return result;
 };
 
-// Method 2: Worker Proxy Upload (Fallback)
-export const uploadViaWorker = async (file, supabase, progressCallback) => {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
+// Method 2: Worker Proxy Upload (Fallback) - PURE CLOUDFLARE
+export const uploadViaWorker = async (file, authObject = null, progressCallback) => {
+  const token = getAuthToken();
   
   if (!token) {
     throw new Error('Authentication required for upload');
@@ -219,25 +210,24 @@ export const uploadViaWorker = async (file, supabase, progressCallback) => {
   return await retryWithBackoff(uploadToWorker);
 };
 
-// Method 3: Chunked Upload for Large Files (fallback to worker upload for now)
-export const uploadChunked = async (file, supabase, progressCallback) => {
+// Method 3: Chunked Upload for Large Files - PURE CLOUDFLARE
+export const uploadChunked = async (file, authObject = null, progressCallback) => {
   // For files larger than 25MB, we would implement chunked upload
   // For now, fall back to worker upload which can handle large files
   if (progressCallback) {
     progressCallback(0, 'Large file detected, using optimized upload...');
   }
   
-  const result = await uploadViaWorker(file, supabase, progressCallback);
+  const result = await uploadViaWorker(file, authObject, progressCallback);
   return {
     ...result,
     method: 'chunked-fallback'
   };
 };
 
-// Method 4: Base64 Upload (Last Resort)
-export const uploadBase64 = async (file, supabase) => {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
+// Method 4: Base64 Upload (Last Resort) - PURE CLOUDFLARE
+export const uploadBase64 = async (file, authObject = null) => {
+  const token = getAuthToken();
   
   if (!token) {
     throw new Error('Authentication required for upload');
@@ -284,8 +274,8 @@ export const uploadBase64 = async (file, supabase) => {
   };
 };
 
-// Main upload function with automatic fallbacks
-export const bulletproofUpload = async (file, supabase, progressCallback) => {
+// Main upload function with automatic fallbacks - 100% PURE CLOUDFLARE
+export const bulletproofUpload = async (file, authObject = null, progressCallback) => {
   // Validate file first
   validateFile(file);
 
@@ -308,7 +298,7 @@ export const bulletproofUpload = async (file, supabase, progressCallback) => {
         progressCallback(0, `Starting ${method.name}...`);
       }
 
-      const result = await method.fn(file, supabase, progressCallback);
+      const result = await method.fn(file, authObject, progressCallback);
       
       console.log(`✅ ${method.name} successful!`, result);
       
@@ -339,11 +329,10 @@ export const bulletproofUpload = async (file, supabase, progressCallback) => {
   throw new Error(`All upload methods failed. Last error: ${lastError?.message || 'Unknown error'}`);
 };
 
-// Verify upload by checking if file exists and is accessible
-export const verifyUpload = async (fileKey, supabase) => {
+// Verify upload by checking if file exists and is accessible - PURE CLOUDFLARE
+export const verifyUpload = async (fileKey, authObject = null) => {
   try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    const token = getAuthToken();
 
     const response = await fetch(`${MEDIA_API_BASE}/media/${encodeURIComponent(fileKey)}`, {
       method: 'HEAD',
@@ -356,10 +345,9 @@ export const verifyUpload = async (fileKey, supabase) => {
   }
 };
 
-// Delete media (Admin only)
-export const deleteMedia = async (fileKey, supabase, isAdmin = false) => {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData?.session?.access_token;
+// Delete media (Admin only) - PURE CLOUDFLARE
+export const deleteMedia = async (fileKey, authObject = null, isAdmin = false) => {
+  const token = getAuthToken();
   
   if (!token) {
     throw new Error('Authentication required');

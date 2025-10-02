@@ -18,30 +18,21 @@ import { cors } from 'hono/cors'
 export type Env = {
   R2: R2Bucket
   ADMIN_EMAIL?: string
-  SUPABASE_URL: string
-  SUPABASE_ANON_KEY: string
+  JWT_SECRET: string
 }
 
 const app = new Hono<{ Bindings: Env }>()
 
 app.use('*', cors())
 
-async function getSupabaseUser(c: any) {
+async function getCloudflareUser(c: any) {
   const auth = c.req.header('authorization') || ''
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : ''
   if (!token) return { user: null, error: 'Missing bearer token' }
 
-  const supabaseUrl = c.env.SUPABASE_URL
-  const anon = c.env.SUPABASE_ANON_KEY
-  const resp = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: {
-      authorization: `Bearer ${token}`,
-      apikey: anon
-    }
-  })
-  if (!resp.ok) return { user: null, error: `Auth check failed: ${resp.status}` }
-  const user = await resp.json()
-  return { user, error: null }
+  // TODO: Implement pure Cloudflare JWT verification using D1 database
+  // For now, return unauthorized
+  return { user: null, error: 'Pure Cloudflare auth not yet implemented' }
 }
 
 function assertPrefixAccess(userId: string, key: string) {
@@ -51,7 +42,7 @@ function assertPrefixAccess(userId: string, key: string) {
 }
 
 app.post('/api/media/upload', async (c) => {
-  const { user, error } = await getSupabaseUser(c)
+  const { user, error } = await getCloudflareUser(c)
   if (error || !user?.id) return c.json({ error: 'Unauthorized' }, 401)
 
   const contentType = c.req.header('content-type') || 'application/octet-stream'
@@ -67,7 +58,7 @@ app.post('/api/media/upload', async (c) => {
 })
 
 app.post('/api/media/sign', async (c) => {
-  const { user, error } = await getSupabaseUser(c)
+  const { user, error } = await getCloudflareUser(c)
   if (error || !user?.id) return c.json({ error: 'Unauthorized' }, 401)
   const { key } = await c.req.json().catch(() => ({}))
   if (!key) return c.json({ error: 'Missing key' }, 400)
@@ -83,7 +74,7 @@ app.post('/api/media/sign', async (c) => {
 })
 
 app.get('/api/media/:key{.+}', async (c) => {
-  const { user, error } = await getSupabaseUser(c)
+  const { user, error } = await getCloudflareUser(c)
   if (error || !user?.id) return c.json({ error: 'Unauthorized' }, 401)
   const key = c.req.param('key')
 
@@ -101,7 +92,7 @@ app.get('/api/media/:key{.+}', async (c) => {
 })
 
 app.delete('/api/media/:key{.+}', async (c) => {
-  const { user, error } = await getSupabaseUser(c)
+  const { user, error } = await getCloudflareUser(c)
   if (error || !user?.id) return c.json({ error: 'Unauthorized' }, 401)
   const key = c.req.param('key')
 
