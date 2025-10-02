@@ -1,8 +1,8 @@
 // Bulletproof Media Upload System - NEVER FAILS AGAIN!
 // Multiple upload strategies with automatic fallbacks and retry mechanisms
 
-const API_BASE = (import.meta.env && import.meta.env.VITE_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
-const MEDIA_API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+const API_BASE = process.env.API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+const MEDIA_API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 
 // Enhanced file validation
 export const validateFile = (file) => {

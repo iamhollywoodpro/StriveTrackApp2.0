@@ -40,7 +40,7 @@ const ProgressPhotos = () => {
       const items = Array.isArray(res?.items) ? res.items : [];
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token || '';
-      const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+      const API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 
       const data = items.map((m) => {
         // Use only cloud-stored metadata from D1 database
@@ -173,7 +173,7 @@ const ProgressPhotos = () => {
       try {
         const session = await supabase?.auth?.getSession();
         const accessToken = session?.data?.session?.access_token;
-        const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+        const API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
         const resp = await fetch(`${API_BASE}/media/${encodeURIComponent(photo?.id)}`, {
           method: 'DELETE',
           headers: { 'Authorization': `Bearer ${accessToken}` }

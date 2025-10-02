@@ -118,7 +118,7 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
-        const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+        const API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
         
         await fetch(`${API_BASE}/media/${encodeURIComponent(result.key)}/metadata`, {
           method: 'PUT',
@@ -139,7 +139,7 @@ const PhotoUploadModal = ({ isOpen, onClose, onUpload }) => {
       const accessToken = session?.data?.session?.access_token;
       
       // Build the media view URL
-      const API_BASE = (import.meta.env && import.meta.env.VITE_MEDIA_API_BASE) || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+      const API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
       const mediaUrl = `${API_BASE}/media/${encodeURIComponent(result.key)}${accessToken ? `?token=${encodeURIComponent(accessToken)}` : ''}`;
 
       // Determine media type based on file type

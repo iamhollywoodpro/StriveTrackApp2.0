@@ -61,13 +61,11 @@
     "use-sound": "^5.0.0"
   },
   "scripts": {
-    "start": "vite --port 3000 --strictPort --host 0.0.0.0",
-    "build": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=2048' vite build --mode production",
-    "build:dev": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=1024' vite build --mode development",
-    "build:lean": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=1024' vite --config vite.config.LEAN.mjs build --mode development",
-    "build:cloudflare": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=1024 --no-warnings' vite build --mode production",
-    "serve": "vite preview --port 3000 --strictPort --host 0.0.0.0",
-    "clean": "rm -rf dist node_modules/.vite* .vite*"
+    "start": "parcel src/index.html --port 3000 --host 0.0.0.0",
+    "dev": "parcel src/index.html --port 3000 --host 0.0.0.0",
+    "build": "parcel build src/index.html --public-url ./",
+    "preview": "npx serve -s dist -p 3000",
+    "clean": "rm -rf dist .parcel-cache"
   },
   "eslintConfig": {
     "extends": [
@@ -91,15 +89,14 @@
     "node": "20.x"
   },
   "devDependencies": {
+    "@parcel/transformer-webmanifest": "^2.16.0",
     "@tailwindcss/aspect-ratio": "^0.4.2",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tailwindcss/line-clamp": "^0.1.0",
     "@tailwindcss/typography": "^0.5.16",
-    "@vitejs/plugin-react": "4.3.4",
     "autoprefixer": "10.4.2",
+    "parcel": "^2.16.0",
     "postcss": "8.4.8",
-    "tailwindcss": "3.4.6",
-    "vite": "5.0.0",
-    "vite-tsconfig-paths": "3.6.0"
+    "tailwindcss": "3.4.6"
   }
 }

@@ -1,11 +1,11 @@
 import React from "react";
 import { BrowserRouter, Routes as RouterRoutes, Route } from "react-router-dom";
-import ScrollToTop from "components/ScrollToTop";
-import ErrorBoundary from "components/ErrorBoundary";
-import ProtectedRoute from "components/ProtectedRoute";
-import AdminRoute from "components/AdminRoute";
+import ScrollToTop from "./components/ScrollToTop";
+import ErrorBoundary from "./components/ErrorBoundary";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AdminRoute from "./components/AdminRoute";
 import { AuthProvider } from "./contexts/AuthContext";
-import NotFound from "pages/NotFound";
+import NotFound from "./pages/NotFound";
 import UserLogin from './pages/user-login';
 import ProgressPhotos from './pages/progress-photos';
 import NutritionTracker from './pages/nutrition-tracker';

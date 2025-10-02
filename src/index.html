@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>StriveTrack | Transform Your Fitness Journey 💪</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  
+  <!-- PWA Meta Tags -->
+  <meta name="theme-color" content="#6366f1" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="StriveTrack" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Transform your fitness journey with StriveTrack! 🚀 Track progress photos, monitor nutrition, achieve goals, and celebrate victories. Your ultimate fitness companion!" />
+  <meta name="keywords" content="fitness tracker, workout tracker, progress photos, nutrition tracker, fitness goals, health app, transformation, PWA, mobile app" />
+  <meta name="author" content="StriveTrack" />
+  
+  <!-- Open Graph Tags -->
+  <meta property="og:title" content="StriveTrack | Transform Your Fitness Journey 💪" />
+  <meta property="og:description" content="The ultimate fitness companion: Track progress photos, monitor nutrition, achieve goals, and celebrate victories. Your transformation starts here!" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://strivetrackapp.com" />
+  <meta property="og:image" content="https://strivetrackapp.com/og-image.png" />
+  
+  <!-- Twitter Cards -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="StriveTrack | Transform Your Fitness Journey 💪" />
+  <meta name="twitter:description" content="The ultimate fitness companion for tracking your transformation journey!" />
+  <meta name="twitter:image" content="https://strivetrackapp.com/twitter-image.png" />
+  
+  <!-- Icons and Manifest -->
+  <link rel="icon" href="/favicon.ico" />
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="/favicon.ico" />
+  
+  <!-- Preload Critical Resources -->
+  <link rel="preconnect" href="https://strivetrack-media-api.iamhollywoodpro.workers.dev" />
+  
+  <!-- Custom Animations CSS -->
+  <style>
+    /* Critical CSS for immediate loading */
+    .loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      color: white;
+    }
+    
+    .loading-logo {
+      width: 80px;
+      height: 80px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.05); opacity: 0.8; }
+    }
+    
+    .loading-text {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    
+    .loading-subtitle {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+
+<body>
+  <noscript>
+    <div style="padding: 40px; text-align: center; font-family: Arial, sans-serif;">
+      <h1>🚀 StriveTrack</h1>
+      <p>You need to enable JavaScript to run this amazing fitness app!</p>
+      <p>Enable JavaScript and refresh to start your transformation journey.</p>
+    </div>
+  </noscript>
+  
+  <!-- Loading Screen -->
+  <div id="loading-screen" class="loading-screen">
+    <div class="loading-logo">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2">
+        <polyline points="22,12 18,12 15,21 9,3 6,12 2,12"></polyline>
+      </svg>
+    </div>
+    <div class="loading-text">StriveTrack</div>
+    <div class="loading-subtitle">Loading your transformation...</div>
+  </div>
+  
+  <div class="dhiwise-code" id="root"></div>
+  
+  <!-- Scripts -->
+  <script type="module" src="./index.jsx"></script>
+  
+  <!-- PWA Service Worker Registration -->
+  <script>
+    // Hide loading screen when app loads
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        const loadingScreen = document.getElementById('loading-screen');
+        if (loadingScreen) {
+          loadingScreen.style.opacity = '0';
+          loadingScreen.style.transition = 'opacity 0.5s ease';
+          setTimeout(() => {
+            loadingScreen.style.display = 'none';
+          }, 500);
+        }
+      }, 1000);
+    });
+    
+    // Service Worker registration handled by React app
+    
+    // Handle PWA install prompt
+    let deferredPrompt;
+    
+    window.addEventListener('beforeinstallprompt', (e) => {
+      console.log('PWA install prompt triggered');
+      e.preventDefault();
+      deferredPrompt = e;
+    });
+    
+    // Track PWA usage
+    window.addEventListener('appinstalled', () => {
+      console.log('StriveTrack PWA was installed! 🎉');
+      deferredPrompt = null;
+    });
+  </script>
+</body>
+
+</html>
