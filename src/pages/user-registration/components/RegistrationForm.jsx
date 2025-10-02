@@ -7,6 +7,7 @@ import Image from '../../../components/AppImage';
 import Button from '../../../components/ui/Button';
 import Input from '../../../components/ui/Input';
 import { Checkbox } from '../../../components/ui/Checkbox';
+import PWAInstallButton from '../../../components/PWAInstallButton';
 
 const RegistrationForm = () => {
   const navigate = useNavigate();
@@ -231,15 +232,44 @@ const RegistrationForm = () => {
                      formData?.password === formData?.confirmPassword;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-background flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl bg-card rounded-2xl shadow-elevation-3 border border-border overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-primary to-secondary p-6 sm:p-8 text-center">
-          <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 sm:mb-4">
-            <Icon name="UserPlus" size={24} className="sm:w-8 sm:h-8" color="white" strokeWidth={2} />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-purple-50/20 dark:from-slate-900 dark:via-slate-800/50 dark:to-slate-900 flex items-center justify-center p-4">
+      {/* PWA Install Button - Fixed Top Right */}
+      <div className="fixed top-4 right-4 z-50">
+        <PWAInstallButton size="sm" variant="outline" />
+      </div>
+
+      <div className="w-full max-w-2xl bg-card/95 backdrop-blur-xl rounded-3xl shadow-elevation-3 border border-white/20 dark:border-white/10 overflow-hidden">
+        {/* Enhanced Header */}
+        <div className="bg-gradient-to-r from-primary via-secondary to-primary p-6 sm:p-8 text-center relative overflow-hidden">
+          {/* Background Pattern */}
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-20"></div>
+          
+          {/* Logo */}
+          <div className="relative z-10">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-elevation-2 border border-white/30">
+              <Icon name="Sparkles" size={32} className="sm:w-10 sm:h-10" color="white" strokeWidth={2} />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Join the StriveTrack Family!</h1>
+            <p className="text-white/90 text-sm sm:text-base max-w-md mx-auto">
+              Ready to unlock your potential? Let's create your transformation story together! 🚀
+            </p>
+            
+            {/* Success Stats */}
+            <div className="flex justify-center space-x-6 mt-4 text-white/80">
+              <div className="text-center">
+                <div className="text-lg font-bold">10k+</div>
+                <div className="text-xs">Transformations</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold">98%</div>
+                <div className="text-xs">Success Rate</div>
+              </div>
+              <div className="text-center">
+                <div className="text-lg font-bold">24/7</div>
+                <div className="text-xs">Support</div>
+              </div>
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Join StriveTrack</h1>
-          <p className="text-white/90 text-sm sm:text-base">Start your fitness transformation journey today</p>
         </div>
 
         {/* Form */}
@@ -524,9 +554,20 @@ const RegistrationForm = () => {
               fullWidth
               loading={isSubmitting}
               disabled={!isFormValid || isSubmitting}
-              className="bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90"
+              className="bg-gradient-to-r from-primary via-secondary to-primary hover:from-primary/90 hover:via-secondary/90 hover:to-primary/90 transform hover:scale-[1.02] transition-all duration-200 shadow-elevation-2 py-4 text-base font-semibold"
             >
-              {isSubmitting ? 'Creating Account...' : 'Create Account'}
+              {isSubmitting ? (
+                <div className="flex items-center justify-center space-x-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Creating Your Account...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-3">
+                  <Icon name="Sparkles" size={20} color="currentColor" strokeWidth={2} />
+                  <span>Start My Transformation!</span>
+                  <Icon name="ArrowRight" size={18} color="currentColor" strokeWidth={2} />
+                </div>
+              )}
             </Button>
             
             <div className="text-center">
@@ -542,6 +583,18 @@ const RegistrationForm = () => {
             </div>
           </div>
         </form>
+      </div>
+
+      {/* Enhanced Background Decorative Elements */}
+      <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
+        {/* Fitness-themed gradient orbs */}
+        <div className="absolute top-1/4 -left-20 w-48 h-48 bg-gradient-to-br from-primary/15 via-primary/10 to-transparent rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 -right-20 w-72 h-72 bg-gradient-to-br from-secondary/15 via-secondary/10 to-transparent rounded-full blur-3xl animate-pulse animation-delay-1000"></div>
+        <div className="absolute top-3/4 left-1/3 w-40 h-40 bg-gradient-to-br from-green-500/10 via-emerald-500/8 to-transparent rounded-full blur-2xl animate-pulse animation-delay-2000"></div>
+        <div className="absolute top-1/2 right-1/4 w-32 h-32 bg-gradient-to-br from-purple-500/10 via-pink-500/8 to-transparent rounded-full blur-xl animate-pulse animation-delay-3000"></div>
+        
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCA0MCA0MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZGVmcz48cGF0dGVybiBpZD0iZ3JpZCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDQwIDAgTCAwIDAgMCA0MCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSJyZ2JhKDk5LDEwMiwyNDEsMC4wNSkiIHN0cm9rZS13aWR0aD0iMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-20"></div>
       </div>
     </div>
   );

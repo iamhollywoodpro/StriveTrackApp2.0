@@ -1,18 +1,67 @@
 {
-  "short_name": "StriveTracker",
-  "name": "StriveTracker - A Complete Fitness Tracker Reimagined",
-  "description": "Transform your fitness journey with comprehensive tracking, progress photos, nutrition monitoring, and achievement systems.",
+  "short_name": "StriveTrack",
+  "name": "StriveTrack - Transform Your Fitness Journey",
+  "description": "The ultimate fitness companion: Track progress photos, monitor nutrition, achieve goals, and celebrate victories. Your transformation starts here! 💪",
   "icons": [
     {
       "src": "favicon.ico",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
+    },
+    {
+      "src": "favicon.ico",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "favicon.ico", 
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "theme_color": "#6366f1",
   "background_color": "#ffffff",
-  "categories": ["health", "fitness", "lifestyle"],
-  "lang": "en"
+  "categories": ["health", "fitness", "lifestyle", "sports", "productivity"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "StriveTrack Mobile Dashboard"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Quick Progress Photo",
+      "short_name": "Progress",
+      "description": "Take a progress photo instantly",
+      "url": "/dashboard?action=photo",
+      "icons": [{ "src": "favicon.ico", "sizes": "96x96" }]
+    },
+    {
+      "name": "Log Workout",
+      "short_name": "Workout", 
+      "description": "Record your workout",
+      "url": "/dashboard?action=workout",
+      "icons": [{ "src": "favicon.ico", "sizes": "96x96" }]
+    },
+    {
+      "name": "View Goals",
+      "short_name": "Goals",
+      "description": "Check your fitness goals",
+      "url": "/dashboard?action=goals", 
+      "icons": [{ "src": "favicon.ico", "sizes": "96x96" }]
+    }
+  ],
+  "prefer_related_applications": false,
+  "related_applications": [],
+  "scope": "/",
+  "lang": "en-US",
+  "dir": "ltr"
 }
