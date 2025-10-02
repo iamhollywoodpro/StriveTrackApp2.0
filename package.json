@@ -27,7 +27,6 @@
     "warning": "🚨 CRITICAL: DO NOT REMOVE OR MODIFY ABOVE DEPENDENCIES - Required for app functionality"
   },
   "dependencies": {
-    "@dhiwise/component-tagger": "^1.0.10",
     "@radix-ui/react-slot": "^1.2.3",
     "@reduxjs/toolkit": "^2.6.1",
     "@supabase/auth-helpers-react": "^0.5.0",
@@ -63,14 +62,12 @@
   },
   "scripts": {
     "start": "vite --port 3000 --strictPort --host 0.0.0.0",
-    "build": "NODE_OPTIONS='--max-old-space-size=4096' vite build --mode production",
-    "build:fast": "NODE_OPTIONS='--max-old-space-size=2048' vite build --mode development", 
-    "build:lean": "NODE_OPTIONS='--max-old-space-size=1024' vite --config vite.config.LEAN.mjs build --mode development",
-    "build:super-fast": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=1024 --no-warnings' vite --config vite.config.LEAN.mjs build --mode development",
-    "build:debug": "NODE_OPTIONS='--max-old-space-size=4096' vite build --mode production --debug",
+    "build": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=2048' vite build --mode production",
+    "build:dev": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=1024' vite build --mode development",
+    "build:lean": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=1024' vite --config vite.config.LEAN.mjs build --mode development",
+    "build:cloudflare": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=1024 --no-warnings' vite build --mode production",
     "serve": "vite preview --port 3000 --strictPort --host 0.0.0.0",
-    "clean": "rm -rf dist node_modules/.vite* .vite*",
-    "prebuild": "npm run clean"
+    "clean": "rm -rf dist node_modules/.vite* .vite*"
   },
   "eslintConfig": {
     "extends": [
