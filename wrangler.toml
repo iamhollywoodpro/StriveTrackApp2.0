@@ -1,8 +1,41 @@
 name = "strivetrackapp2-0"
 compatibility_date = "2024-01-01"
-# Tell Wrangler/Pages where the built assets live
+main = "src/worker.js"
+
+# Cloudflare Pages Configuration
 pages_build_output_dir = "./dist"
 
-# No functions/worker used for this project. This file exists to satisfy
-# Cloudflare Pages' "Wrangler configuration file (BETA)" detection and
-# avoid pre-build internal errors.
+# D1 Database Bindings
+[[d1_databases]]
+binding = "DB"
+database_name = "strivetrack_d1"
+database_id = "${D1_DATABASE_ID}"
+
+# R2 Storage Bindings
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "strivetrack-media"
+
+# Environment Variables
+[env.production.vars]
+ENVIRONMENT = "production"
+API_BASE_URL = "https://strivetrackapp2-0.${CLOUDFLARE_ACCOUNT_ID}.workers.dev"
+R2_BUCKET_NAME = "strivetrack-media"
+R2_PUBLIC_URL = "https://pub-${CLOUDFLARE_ACCOUNT_ID}.r2.dev"
+
+# KV Namespace for Sessions/Cache
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "${KV_NAMESPACE_ID}"
+preview_id = "${KV_PREVIEW_ID}"
+
+# Wrangler Pages Configuration
+[build]
+command = "npm run build:production"
+cwd = "./"
+watch_dir = "src"
+
+# Custom domains (to be configured after deployment)
+# [[route]]
+# pattern = "strivetrack.app/*"
+# zone_name = "strivetrack.app"
