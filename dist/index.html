@@ -1,9 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>StriveTrack | Transform Your Fitness Journey 💪</title>
+    <title>Sign In | StriveTracker - A Complete Fitness Tracker Reimagined</title>
+    <meta name="description" content="Sign in to StriveTracker to continue tracking your fitness transformation with progress photos, workouts, nutrition, and achievement systems." />
+    <meta name="keywords" content="fitness login, workout tracker, progress photos, fitness app sign in, nutrition tracker" />
     <meta name="theme-color" content="#6366f1" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -14,11 +16,12 @@
         :root {
             --primary: 99 102 241;
             --secondary: 139 92 246;
-            --background: 2 6 23;
-            --foreground: 248 250 252;
-            --muted: 71 85 105;
-            --muted-foreground: 148 163 184;
-            --border: 30 41 59;
+            --background: 248 250 252;
+            --foreground: 15 23 42;
+            --muted: 100 116 139;
+            --muted-foreground: 71 85 105;
+            --border: 226 232 240;
+            --card: 255 255 255;
             --destructive: 239 68 68;
             --success: 34 197 94;
         }
@@ -31,13 +34,9 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-            background: linear-gradient(135deg, rgb(var(--background)) 0%, rgb(15 23 42) 100%);
+            background: linear-gradient(135deg, rgb(248 250 252) 0%, rgb(241 245 249) 30%, rgb(236 254 255) 70%, rgb(243 232 255) 100%);
             color: rgb(var(--foreground));
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
             position: relative;
             overflow-x: hidden;
         }
@@ -45,44 +44,45 @@
         /* Background decoration */
         body::before {
             content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: radial-gradient(circle at 20% 50%, rgba(var(--primary), 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 20%, rgba(var(--secondary), 0.1) 0%, transparent 50%),
-                        radial-gradient(circle at 40% 80%, rgba(34, 197, 94, 0.05) 0%, transparent 50%);
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(circle at 25% 50%, rgba(var(--primary), 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 75% 20%, rgba(var(--secondary), 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(34, 197, 94, 0.06) 0%, transparent 50%);
             pointer-events: none;
+            z-index: -2;
+        }
+        
+        /* Subtle grid pattern */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: url("data:image/svg+xml,%3csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3e%3cdefs%3e%3cpattern id='grid' width='40' height='40' patternUnits='userSpaceOnUse'%3e%3cpath d='M 40 0 L 0 0 0 40' fill='none' stroke='rgba(99,102,241,0.03)' stroke-width='1'/%3e%3c/pattern%3e%3c/defs%3e%3crect width='100%25' height='100%25' fill='url(%23grid)'/%3e%3c/svg%3e");
+            opacity: 0.4;
+            pointer-events: none;
+            z-index: -1;
         }
         
         .container {
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(var(--border), 0.5);
-            border-radius: 24px;
-            padding: 2rem;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(var(--primary), 0.05);
-            max-width: 400px;
-            width: 100%;
-            text-align: center;
-            position: relative;
-            animation: slideUp 0.8s ease-out;
-        }
-        
-        @keyframes slideUp {
-            from { transform: translateY(30px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+            max-width: 28rem;
+            margin: 0 auto;
+            padding: 1.5rem;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
         
         /* PWA Install Button */
         .pwa-install {
-            position: absolute;
+            position: fixed;
             top: 1rem;
             right: 1rem;
             padding: 0.5rem 1rem;
             background: rgba(var(--primary), 0.1);
-            border: 1px solid rgba(var(--primary), 0.3);
+            border: 1px solid rgba(var(--primary), 0.2);
             border-radius: 12px;
             color: rgb(var(--primary));
             font-size: 0.75rem;
@@ -90,15 +90,17 @@
             cursor: pointer;
             transition: all 0.2s ease;
             display: none;
+            z-index: 50;
         }
         
         .pwa-install:hover {
-            background: rgba(var(--primary), 0.2);
-            border-color: rgba(var(--primary), 0.5);
+            background: rgba(var(--primary), 0.15);
+            border-color: rgba(var(--primary), 0.3);
         }
         
-        /* Logo Section */
-        .logo-section {
+        /* Header Section */
+        .header-section {
+            text-align: center;
             margin-bottom: 2rem;
         }
         
@@ -116,8 +118,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 20px 40px rgba(var(--primary), 0.3);
-            border: 2px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 10px 40px rgba(var(--primary), 0.2), 0 0 0 2px rgba(255, 255, 255, 0.8);
             position: relative;
             z-index: 2;
         }
@@ -128,7 +129,7 @@
             width: 80px;
             height: 80px;
             border-radius: 16px;
-            border: 2px solid rgba(var(--primary), 0.3);
+            border: 2px solid rgba(var(--primary), 0.2);
             transform: scale(1.1);
             animation: pulse 2s ease-in-out infinite;
         }
@@ -139,7 +140,7 @@
             width: 80px;
             height: 80px;
             border-radius: 16px;
-            border: 2px solid rgba(var(--secondary), 0.2);
+            border: 2px solid rgba(var(--secondary), 0.15);
             transform: scale(1.25);
         }
         
@@ -166,11 +167,6 @@
             letter-spacing: 0.1em;
         }
         
-        /* Welcome Section */
-        .welcome-section {
-            margin-bottom: 1.5rem;
-        }
-        
         .welcome-title {
             font-size: 1.875rem;
             font-weight: 700;
@@ -181,7 +177,8 @@
         .welcome-subtitle {
             color: rgb(var(--muted-foreground));
             line-height: 1.6;
-            margin-bottom: 1.5rem;
+            max-width: 24rem;
+            margin: 0 auto 1.5rem;
         }
         
         /* Feature Grid */
@@ -194,24 +191,31 @@
         
         .feature-card {
             padding: 0.75rem;
-            background: linear-gradient(135deg, rgba(var(--primary), 0.1), rgba(var(--primary), 0.05));
+            background: linear-gradient(135deg, rgba(var(--primary), 0.08), rgba(var(--primary), 0.03));
             border-radius: 12px;
-            border: 1px solid rgba(var(--primary), 0.2);
+            border: 1px solid rgba(var(--primary), 0.15);
+            transition: all 0.2s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(var(--primary), 0.1);
         }
         
         .feature-card.secondary {
-            background: linear-gradient(135deg, rgba(var(--secondary), 0.1), rgba(var(--secondary), 0.05));
-            border-color: rgba(var(--secondary), 0.2);
+            background: linear-gradient(135deg, rgba(var(--secondary), 0.08), rgba(var(--secondary), 0.03));
+            border-color: rgba(var(--secondary), 0.15);
         }
         
         .feature-card.success {
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05));
-            border-color: rgba(34, 197, 94, 0.2);
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(34, 197, 94, 0.03));
+            border-color: rgba(34, 197, 94, 0.15);
         }
         
         .feature-icon {
             font-size: 1.25rem;
             margin-bottom: 0.5rem;
+            display: block;
         }
         
         .feature-text {
@@ -223,10 +227,12 @@
         /* Stats Section */
         .stats-section {
             padding: 1rem;
-            background: linear-gradient(135deg, rgba(var(--primary), 0.05), rgba(var(--secondary), 0.05));
+            background: rgba(var(--card), 0.7);
+            backdrop-filter: blur(12px);
             border-radius: 12px;
-            border: 1px solid rgba(var(--primary), 0.1);
+            border: 1px solid rgba(var(--border), 0.6);
             margin-bottom: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         }
         
         .stats-grid {
@@ -249,20 +255,31 @@
         .stat-label {
             font-size: 0.75rem;
             color: rgb(var(--muted-foreground));
+            margin-top: 0.25rem;
         }
         
         .stats-quote {
             padding-top: 0.75rem;
-            border-top: 1px solid rgba(var(--primary), 0.1);
+            border-top: 1px solid rgba(var(--border), 0.5);
             font-style: italic;
             font-size: 0.875rem;
             color: rgb(var(--muted-foreground));
         }
         
+        /* Main Card */
+        .main-card {
+            background: rgba(var(--card), 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 2rem;
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(var(--primary), 0.05);
+            margin-bottom: 1.5rem;
+        }
+        
         /* Form Styles */
         .form-group {
             margin-bottom: 1.5rem;
-            text-align: left;
         }
         
         .form-label {
@@ -292,7 +309,7 @@
         
         .form-input:focus {
             outline: none;
-            border-color: rgba(var(--primary), 0.6);
+            border-color: rgba(var(--primary), 0.5);
             box-shadow: 0 0 0 3px rgba(var(--primary), 0.1);
         }
         
@@ -302,7 +319,7 @@
         
         .submit-btn {
             width: 100%;
-            padding: 1rem 1.5rem;
+            padding: 0.875rem 1.5rem;
             background: linear-gradient(135deg, rgb(var(--primary)), rgb(var(--secondary)));
             color: white;
             border: none;
@@ -314,13 +331,13 @@
             margin-bottom: 1rem;
             display: flex;
             align-items: center;
-            justify-center: center;
+            justify-content: center;
             gap: 0.5rem;
         }
         
         .submit-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(var(--primary), 0.3);
+            box-shadow: 0 10px 25px rgba(var(--primary), 0.25);
         }
         
         .submit-btn:disabled {
@@ -334,7 +351,7 @@
             align-items: center;
             gap: 0.5rem;
             padding: 0.5rem 1rem;
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(16, 185, 129, 0.1));
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(16, 185, 129, 0.05));
             color: rgb(34 197 94);
             text-decoration: none;
             font-weight: 600;
@@ -345,8 +362,9 @@
         }
         
         .switch-link:hover {
-            background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(16, 185, 129, 0.2));
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), rgba(16, 185, 129, 0.08));
             border-color: rgba(34, 197, 94, 0.3);
+            transform: translateY(-1px);
         }
         
         .message {
@@ -409,10 +427,10 @@
         
         .tip-section {
             padding: 1rem;
-            background: rgba(var(--muted), 0.1);
+            background: rgba(var(--muted), 0.05);
             border-radius: 12px;
-            border: 1px solid rgba(var(--border), 0.5);
-            margin-top: 2rem;
+            border: 1px solid rgba(var(--border), 0.3);
+            margin-top: 1.5rem;
         }
         
         .tip-header {
@@ -428,14 +446,30 @@
             color: rgb(var(--muted-foreground));
             line-height: 1.4;
         }
+        
+        /* Mobile responsiveness */
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+            }
+            
+            .main-card {
+                padding: 1.5rem;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+                gap: 0.5rem;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <button id="installBtn" class="pwa-install">📱 Install App</button>
         
-        <!-- Logo Section -->
-        <div class="logo-section">
+        <!-- Header Section -->
+        <div class="header-section">
             <div class="logo-container">
                 <div class="logo-main">
                     <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
@@ -450,10 +484,7 @@
                 <h1 class="app-name">StriveTrack</h1>
                 <p class="app-tagline">Fitness Reimagined</p>
             </div>
-        </div>
-        
-        <!-- Welcome Section -->
-        <div class="welcome-section">
+            
             <h2 class="welcome-title">Welcome Back, Warrior!</h2>
             <p class="welcome-subtitle">
                 Ready to continue crushing your goals? Let's see what amazing progress you've made! 💪
@@ -497,118 +528,126 @@
             </div>
         </div>
         
-        <!-- Authentication Forms -->
-        <div id="loginForm">
-            <form onsubmit="return false;">
-                <div class="form-group">
-                    <label class="form-label">
-                        <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                            <polyline points="22,6 12,13 2,6"></polyline>
+        <!-- Main Login Card -->
+        <div class="main-card">
+            <!-- Login Form -->
+            <div id="loginForm">
+                <form onsubmit="return false;">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                            Email Address
+                        </label>
+                        <input type="email" id="email" class="form-input" placeholder="your.email@example.com" required />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <circle cx="12" cy="16" r="1"></circle>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                            Password
+                        </label>
+                        <input type="password" id="password" class="form-input" placeholder="Your secure password" required />
+                    </div>
+                    
+                    <button type="button" id="loginBtn" class="submit-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"></polygon>
                         </svg>
-                        Email Address
-                    </label>
-                    <input type="email" id="email" class="form-input" placeholder="your.email@example.com" required />
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">
-                        <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                            <circle cx="12" cy="16" r="1"></circle>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        Power Up & Sign In
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12,5 19,12 12,19"></polyline>
                         </svg>
-                        Password
-                    </label>
-                    <input type="password" id="password" class="form-input" placeholder="Your secure password" required />
-                </div>
+                    </button>
+                </form>
                 
-                <button type="button" id="loginBtn" class="submit-btn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polygon points="13,2 3,14 12,14 11,22 21,10 12,10"></polygon>
-                    </svg>
-                    Power Up & Sign In
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                        <polyline points="12,5 19,12 12,19"></polyline>
-                    </svg>
-                </button>
-            </form>
+                <div style="text-align: center;">
+                    <a href="#" id="switchToRegister" class="switch-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <line x1="19" y1="8" x2="19" y2="14"></line>
+                            <line x1="22" y1="11" x2="16" y2="11"></line>
+                        </svg>
+                        Start Your Transformation
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386L9.663 17z"></path>
+                        </svg>
+                    </a>
+                </div>
+            </div>
             
-            <a href="#" id="switchToRegister" class="switch-link">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="9" cy="7" r="4"></circle>
-                    <line x1="19" y1="8" x2="19" y2="14"></line>
-                    <line x1="22" y1="11" x2="16" y2="11"></line>
-                </svg>
-                Start Your Transformation
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386L9.663 17z"></path>
-                </svg>
-            </a>
-        </div>
-        
-        <div id="registerForm" style="display: none;">
-            <form onsubmit="return false;">
-                <div class="form-group">
-                    <label class="form-label">
-                        <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                            <polyline points="22,6 12,13 2,6"></polyline>
+            <!-- Registration Form -->
+            <div id="registerForm" style="display: none;">
+                <form onsubmit="return false;">
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                                <polyline points="22,6 12,13 2,6"></polyline>
+                            </svg>
+                            Email Address
+                        </label>
+                        <input type="email" id="regEmail" class="form-input" placeholder="your.email@example.com" required />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                                <circle cx="12" cy="16" r="1"></circle>
+                                <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                            </svg>
+                            Password
+                        </label>
+                        <input type="password" id="regPassword" class="form-input" placeholder="Create secure password (8+ chars)" required />
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            Full Name
+                        </label>
+                        <input type="text" id="regName" class="form-input" placeholder="Enter your full name" required />
+                    </div>
+                    
+                    <button type="button" id="registerBtn" class="submit-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <polyline points="12,6 12,12 16,14"></polyline>
                         </svg>
-                        Email Address
-                    </label>
-                    <input type="email" id="regEmail" class="form-input" placeholder="your.email@example.com" required />
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">
-                        <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                            <circle cx="12" cy="16" r="1"></circle>
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                        Begin Your Journey
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                            <polyline points="12,5 19,12 12,19"></polyline>
                         </svg>
-                        Password
-                    </label>
-                    <input type="password" id="regPassword" class="form-input" placeholder="Create secure password (8+ chars)" required />
-                </div>
+                    </button>
+                </form>
                 
-                <div class="form-group">
-                    <label class="form-label">
-                        <svg class="form-label-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                            <circle cx="12" cy="7" r="4"></circle>
+                <div style="text-align: center;">
+                    <a href="#" id="switchToLogin" class="switch-link">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                            <polyline points="10,17 15,12 10,7"></polyline>
+                            <line x1="15" y1="12" x2="3" y2="12"></line>
                         </svg>
-                        Full Name
-                    </label>
-                    <input type="text" id="regName" class="form-input" placeholder="Enter your full name" required />
+                        Already a warrior? Sign in!
+                    </a>
                 </div>
-                
-                <button type="button" id="registerBtn" class="submit-btn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <polyline points="12,6 12,12 16,14"></polyline>
-                    </svg>
-                    Begin Your Journey
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                        <polyline points="12,5 19,12 12,19"></polyline>
-                    </svg>
-                </button>
-            </form>
+            </div>
             
-            <a href="#" id="switchToLogin" class="switch-link">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
-                    <polyline points="10,17 15,12 10,7"></polyline>
-                    <line x1="15" y1="12" x2="3" y2="12"></line>
-                </svg>
-                Already a warrior? Sign in!
-            </a>
+            <div id="message" class="message"></div>
         </div>
-        
-        <div id="message" class="message"></div>
         
         <!-- Quick Badges -->
         <div class="quick-badges">
@@ -712,7 +751,7 @@
             }
         }
         
-        // Authentication functions
+        // Enhanced authentication functions - Fixed routing
         async function handleAuth(isLogin) {
             const button = document.getElementById(isLogin ? 'loginBtn' : 'registerBtn');
             const email = document.getElementById(isLogin ? 'email' : 'regEmail').value.trim();
@@ -754,18 +793,26 @@
                 const data = await response.json();
                 
                 if (response.ok && data.success) {
-                    // Store authentication data
+                    // Store authentication data properly
                     localStorage.setItem('strivetrack_token', data.token);
                     if (data.user) {
                         localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
                     }
                     
+                    // Store session data that the React app expects
+                    const sessionData = {
+                        access_token: data.token,
+                        user: data.user,
+                        expires_at: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+                    };
+                    localStorage.setItem('supabase.auth.token', JSON.stringify(sessionData));
+                    
                     showMessage(isLogin ? 'Welcome back, warrior! 🔥' : 'Welcome to StriveTrack! Your journey begins now! 🚀', 'success');
                     
-                    // Redirect to dashboard after a brief delay
+                    // Redirect to dashboard after success
                     setTimeout(() => {
-                        // Use relative URL to avoid redirect loops
-                        window.location.href = './dashboard';
+                        // Use full URL to ensure proper routing
+                        window.location.href = window.location.origin + '/dashboard';
                     }, 1500);
                 } else {
                     showMessage(data.message || `${endpoint} failed. Please try again.`, 'error');
@@ -794,7 +841,7 @@
         const token = localStorage.getItem('strivetrack_token');
         if (token) {
             // Already logged in, redirect to dashboard
-            window.location.href = './dashboard';
+            window.location.href = window.location.origin + '/dashboard';
         }
     </script>
 </body>
