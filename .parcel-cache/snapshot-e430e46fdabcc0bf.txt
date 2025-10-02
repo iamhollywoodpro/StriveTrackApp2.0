@@ -1,4 +1,5 @@
-16814
+16819
+40/home/user/webapp/CUSTOM_DOMAIN_SETUP.md1759433634624195851 0
 36/home/user/webapp/preflight-check.js1759432929432532870 0
 33/home/user/webapp/build-static.js1759368749539104887 0
 22/home/user/webapp/.env1759364049416943222 0
@@ -1029,6 +1030,7 @@
 35/home/user/webapp/node_modules/@swc1759419822331821218 1
 57/home/user/webapp/node_modules/@lezer/common/package.json1759419810599046165 0
 60/home/user/webapp/node_modules/@lezer/lr/dist/constants.d.ts1759419810811060170 0
+51/home/user/webapp/DNS_CONFIG_strivetrackapp.com.txt1759433651733606872 0
 54/home/user/webapp/node_modules/@lezer/lr/dist/index.js1759419810775057792 0
 57/home/user/webapp/node_modules/@lezer/lr/dist/index.d.cts1759419810583045107 0
 55/home/user/webapp/node_modules/@lezer/lr/dist/index.cjs1759419810519040879 0
@@ -4235,7 +4237,7 @@
 87/home/user/webapp/node_modules/date-fns/esm/fp/getOverlappingDaysInIntervals/index.d.ts1759419820279685654 0
 80/home/user/webapp/node_modules/date-fns/fp/getWeeksInMonthWithOptions/index.d.ts1759419821083738771 0
 67/home/user/webapp/node_modules/date-fns/isThisISOWeek/index.js.flow1759419814343293505 0
-33/home/user/webapp/.env.production1759432873769018611 0
+33/home/user/webapp/.env.production1759433583867953620 0
 54/home/user/webapp/node_modules/shebang-command/license1759419808530909545 0
 85/home/user/webapp/node_modules/date-fns/fp/differenceInCalendarISOWeeks/index.js.flow1759419813751254396 0
 68/home/user/webapp/node_modules/@swc/helpers/cjs/_async_generator.cjs1759419809374965303 0
@@ -7770,7 +7772,7 @@
 78/home/user/webapp/node_modules/lucide-react/dist/esm/icons/highlighter.mjs.map1759419812723186483 0
 89/home/user/webapp/node_modules/@swc/helpers/_/_iterable_to_array_limit_loose/package.json1759419812175150280 0
 68/home/user/webapp/node_modules/date-fns/esm/addSeconds/index.js.flow1759419811511106414 0
-42/home/user/webapp/dist/webapp.39bebcde.css1759432976066523254 0
+42/home/user/webapp/dist/webapp.39bebcde.css1759434656763278740 0
 70/home/user/webapp/node_modules/date-fns/fp/previousSunday/package.json1759419819375625933 0
 80/home/user/webapp/node_modules/date-fns/esm/fp/eachMonthOfInterval/index.js.flow1759419812511172477 0
 69/home/user/webapp/node_modules/date-fns/esm/addQuarters/index.js.flow1759419811503105886 0
@@ -8179,7 +8181,7 @@
 70/home/user/webapp/node_modules/tailwindcss/lib/lib/defaultExtractor.js1759419811375097430 0
 53/home/user/webapp/node_modules/date-fns/esm/locale/ca1759419820627708646 1
 67/home/user/webapp/node_modules/date-fns/fp/differenceInMilliseconds1759419820963730844 1
-33/home/user/webapp/dist/index.html1759432976734607176 0
+33/home/user/webapp/dist/index.html1759434657275313863 0
 68/home/user/webapp/node_modules/tailwindcss/lib/value-parser/index.js1759419811611113020 0
 80/home/user/webapp/node_modules/@parcel/core/test/fixtures/custom-targets-distdir1759419812079143938 1
 78/home/user/webapp/node_modules/lucide-react/dist/esm/icons/folder-plus.mjs.map1759419812643181198 0
@@ -8668,7 +8670,8 @@
 49/home/user/webapp/node_modules/date-fns/isTuesday1759419821407760176 1
 72/home/user/webapp/node_modules/date-fns/locale/az/_lib/localize/index.js1759419817043471875 0
 64/home/user/webapp/node_modules/date-fns/esm/locale/fi/_lib/match1759419815811390486 1
-43/home/user/webapp/dist/favicon.aa8f5a21.ico1759432975966510686 0
+45/home/user/webapp/PHASE_7_DEPLOYMENT_GUIDE.md1759433029261049698 0
+43/home/user/webapp/dist/favicon.aa8f5a21.ico1759434655383184066 0
 72/home/user/webapp/node_modules/date-fns/esm/locale/fa-IR/_lib/formatLong1759419815787388900 1
 79/home/user/webapp/node_modules/date-fns/esm/roundToNearestMinutes/index.js.flow1759419813563241976 0
 54/home/user/webapp/node_modules/sucrase/register/tsx.js1759419811563109849 0
@@ -9711,7 +9714,7 @@
 59/home/user/webapp/node_modules/date-fns/fp/addDays/index.js1759419816499435937 0
 70/home/user/webapp/node_modules/date-fns/esm/fp/nextSunday/package.json1759419818619575990 0
 60/home/user/webapp/node_modules/date-fns/locale/bn/index.d.ts1759419821447762818 0
-41/home/user/webapp/dist/webapp.9c02dbd8.js1759432976734607176 0
+41/home/user/webapp/dist/webapp.9c02dbd8.js1759434657271313589 0
 68/home/user/webapp/node_modules/@swc/helpers/src/_new_arrow_check.mjs1759419812483170628 0
 76/home/user/webapp/node_modules/date-fns/esm/fp/differenceInQuarters/index.js1759419815215351112 0
 64/home/user/webapp/node_modules/date-fns/compareAsc/index.js.flow1759419810895065719 0
@@ -9763,7 +9766,7 @@
 76/home/user/webapp/node_modules/lucide-react/dist/esm/icons/package-2.mjs.map1759419813267222421 0
 89/home/user/webapp/node_modules/date-fns/esm/fp/eachHourOfIntervalWithOptions/package.json1759419818439564099 0
 79/home/user/webapp/node_modules/date-fns/esm/minutesToMilliseconds/index.js.flow1759419813527239598 0
-34/home/user/webapp/deploy-worker.js1759432896312112057 0
+34/home/user/webapp/deploy-worker.js1759433600625363840 0
 68/home/user/webapp/node_modules/@swc/helpers/_/_ts_param/package.json1759419812359162436 0
 72/home/user/webapp/node_modules/caniuse-lite/data/features/typedarrays.js1759419812731187011 0
 76/home/user/webapp/node_modules/date-fns/esm/fp/eachMinuteOfInterval/index.js1759419815227351905 0
@@ -10030,7 +10033,7 @@
 77/home/user/webapp/node_modules/date-fns/esm/fp/secondsToMilliseconds/index.js1759419815379361947 0
 55/home/user/webapp/node_modules/date-fns/_lib/setUTCWeek1759419814871328386 1
 58/home/user/webapp/node_modules/date-fns/eachWeekOfInterval1759419819983666099 1
-17/home/user/webapp1759432975954509178 1
+17/home/user/webapp1759434655371183243 1
 67/home/user/webapp/node_modules/date-fns/esm/locale/uz/_lib/localize1759419816311423517 1
 53/home/user/webapp/node_modules/date-fns/esm/locale/hu1759419820679712081 1
 69/home/user/webapp/node_modules/date-fns/esm/fp/startOfWeekWithOptions1759419820455697282 1
@@ -10623,7 +10626,7 @@
 52/home/user/webapp/node_modules/@parcel/cache/LICENSE1759419810447036123 0
 67/home/user/webapp/node_modules/caniuse-lite/dist/unpacker/agents.js1759419810659050128 0
 92/home/user/webapp/node_modules/react-router-dom/dist/umd/react-router-dom.development.js.map1759419811043075497 0
-31/home/user/webapp/wrangler.toml1759432759300103324 0
+31/home/user/webapp/wrangler.toml1759433589632439828 0
 62/home/user/webapp/src/components/habits/WeeklyHabitTracker.jsx1759423835242708693 0
 73/home/user/webapp/node_modules/date-fns/esm/locale/ar/_lib/formatRelative1759419815579375159 1
 82/home/user/webapp/node_modules/date-fns/esm/locale/uz/_lib/formatRelative/index.js1759419816311423517 0
@@ -10918,6 +10921,7 @@
 68/home/user/webapp/node_modules/@swc/helpers/_/_identity/package.json1759419812143148166 0
 57/home/user/webapp/node_modules/postcss/lib/lazy-result.js1759419808998940463 0
 63/home/user/webapp/node_modules/date-fns/locale/cy/index.js.flow1759419814399297204 0
+46/home/user/webapp/DEPLOYMENT_SUCCESS_PHASE7.md1759433058980565259 0
 59/home/user/webapp/node_modules/@swc/helpers/esm/_type_of.js1759419811623113813 0
 71/home/user/webapp/node_modules/date-fns/eachMinuteOfInterval/index.d.ts1759419819975665571 0
 38/home/user/webapp/src/components/forms1759421367430650128 1
@@ -11424,7 +11428,7 @@
 67/home/user/webapp/node_modules/date-fns/fp/startOfWeek/package.json1759419819443630425 0
 80/home/user/webapp/node_modules/@jridgewell/trace-mapping/types/flatten-map.d.mts1759419810435035330 0
 61/home/user/webapp/node_modules/date-fns/locale/ar-SA/index.js1759419817015470026 0
-22/home/user/webapp/dist1759432976738607679 1
+22/home/user/webapp/dist1759434657275313863 1
 75/home/user/webapp/node_modules/date-fns/millisecondsToMinutes/index.js.flow1759419814643313324 0
 89/home/user/webapp/node_modules/date-fns/esm/fp/differenceInCalendarQuarters/index.js.flow1759419812299158472 0
 102/home/user/webapp/node_modules/@parcel/workers/test/integration/workerfarm/resolve-shared-reference.js1759419810995072325 0
@@ -12636,6 +12640,7 @@
 72/home/user/webapp/node_modules/date-fns/fp/subBusinessDays/index.js.flow1759419814215285049 0
 71/home/user/webapp/node_modules/date-fns/fp/subBusinessDays/package.json1759419819455631218 0
 79/home/user/webapp/node_modules/lucide-react/dist/esm/icons/monitor-stop.mjs.map1759419813227219778 0
+45/home/user/webapp/STRIVETRACKAPP_COM_READY.md1759433720987228766 0
 82/home/user/webapp/node_modules/date-fns/esm/fp/eachWeekendOfInterval/index.js.flow1759419812527173534 0
 69/home/user/webapp/node_modules/date-fns/fp/subBusinessDays/index.d.ts1759419821287752247 0
 59/home/user/webapp/node_modules/date-fns/fp/subDays/index.js1759419816799455756 0
@@ -13803,7 +13808,7 @@
 65/home/user/webapp/node_modules/date-fns/locale/gl/_lib/formatLong1759419817279487466 1
 74/home/user/webapp/node_modules/date-fns/locale/gl/_lib/formatLong/index.js1759419817279487466 0
 69/home/user/webapp/node_modules/date-fns/locale/gl/_lib/formatRelative1759419817279487466 1
-27/home/user/webapp/deploy.js1759432854630335976 0
+27/home/user/webapp/deploy.js1759433663926606892 0
 81/home/user/webapp/node_modules/caniuse-lite/data/features/subresource-bundling.js1759419812687184104 0
 78/home/user/webapp/node_modules/date-fns/locale/gl/_lib/formatRelative/index.js1759419817279487466 0
 62/home/user/webapp/node_modules/caniuse-lite/data/regions/US.js1759419812735187275 0
@@ -16706,7 +16711,7 @@
 67/home/user/webapp/node_modules/lucide-react/dist/esm/icons/list.mjs1759419814371295355 0
 53/home/user/webapp/node_modules/autoprefixer/README.md1759419811079077875 0
 75/home/user/webapp/node_modules/lucide-react/dist/esm/icons/user-check-2.mjs1759419814995336578 0
-30/home/user/webapp/package.json1759432934637214673 0
+30/home/user/webapp/package.json1759433667782922230 0
 73/home/user/webapp/node_modules/lucide-react/dist/esm/icons/locate-off.mjs1759419814375295619 0
 68/home/user/webapp/node_modules/tailwindcss/lib/util/resolveConfig.js1759419812319159793 0
 71/home/user/webapp/node_modules/lucide-react/dist/esm/icons/lollipop.mjs1759419814375295619 0

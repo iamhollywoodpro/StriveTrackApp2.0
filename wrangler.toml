@@ -1,8 +1,7 @@
 name = "strivetrackapp2-0"
 compatibility_date = "2024-01-01"
-main = "src/worker.js"
 
-# Cloudflare Pages Configuration
+# Cloudflare Pages Configuration  
 pages_build_output_dir = "./dist"
 
 # D1 Database Bindings
@@ -30,11 +29,7 @@ binding = "SESSIONS"
 id = "${KV_NAMESPACE_ID}"
 preview_id = "${KV_PREVIEW_ID}"
 
-# Wrangler Pages Configuration
-[build]
-command = "npm run build:production"
-cwd = "./"
-watch_dir = "src"
+# Build configuration handled by npm scripts
 
 # Custom Domain Configuration
 # After adding strivetrackapp.com in Cloudflare Pages Dashboard, 

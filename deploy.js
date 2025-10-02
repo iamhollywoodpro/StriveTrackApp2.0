@@ -139,7 +139,7 @@ class StriveTrackDeployer {
     
     try {
       // Deploy to Cloudflare Pages
-      const deployCommand = `npx wrangler pages deploy ${this.distDir} --project-name=${this.projectName} --compatibility-date=2024-01-01`;
+      const deployCommand = `npx wrangler pages deploy ${this.distDir} --project-name=${this.projectName}`;
       
       this.log('Executing deployment...', 'info');
       const output = execSync(deployCommand, { encoding: 'utf8', stdio: 'pipe' });

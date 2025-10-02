@@ -1,0 +1,28 @@
+name = "strivetrackapp2-0"
+compatibility_date = "2024-01-01"
+
+# Cloudflare Pages Configuration Only
+pages_build_output_dir = "./dist"
+
+# D1 Database Bindings
+[[d1_databases]]
+binding = "DB"
+database_name = "strivetrack_d1"
+
+# R2 Storage Bindings
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "strivetrack-media"
+
+# Environment Variables
+[env.production.vars]
+ENVIRONMENT = "production"
+API_BASE_URL = "https://api.strivetrackapp.com"
+CUSTOM_DOMAIN = "strivetrackapp.com"
+R2_BUCKET_NAME = "strivetrack-media"
+
+# KV Namespace for Sessions/Cache
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = ""
+preview_id = ""
