@@ -12,20 +12,14 @@
     <meta name="apple-mobile-web-app-title" content="StriveTrack" />
     
     <!-- SEO -->
-    <meta name="description" content="Transform your fitness journey with StriveTrack! 🚀 Track progress photos, monitor nutrition, achieve goals, and celebrate victories." />
-    <meta name="keywords" content="fitness tracker, workout tracker, progress photos, nutrition tracker, fitness goals, health app" />
+    <meta name="description" content="Transform your fitness journey with StriveTrack! 🚀" />
     
-    <!-- Icons and Manifest -->
+    <!-- Icons -->
     <link rel="icon" href="/favicon.ico" />
     <link rel="manifest" href="/manifest.json" />
     
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -35,7 +29,6 @@
             justify-content: center;
             padding: 20px;
         }
-        
         .container {
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
@@ -45,431 +38,286 @@
             max-width: 400px;
             width: 100%;
             text-align: center;
-            position: relative;
-            overflow: hidden;
+            animation: slideUp 0.8s ease-out;
         }
-        
-        .container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+        @keyframes slideUp {
+            from { transform: translateY(30px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
         }
-        
         .logo {
-            width: 80px;
-            height: 80px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 24px;
-            position: relative;
-            animation: float 6s ease-in-out infinite;
-        }
-        
-        .logo::after {
-            content: '💪';
-            font-size: 32px;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0px); }
-            50% { transform: translateY(-10px); }
-        }
-        
-        h1 {
-            font-size: 32px;
-            font-weight: bold;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: #6366f1;
             margin-bottom: 8px;
         }
-        
         .subtitle {
-            color: #6b7280;
-            margin-bottom: 32px;
-            font-size: 16px;
+            font-size: 1.1rem;
+            color: #666;
+            margin-bottom: 30px;
         }
-        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin: 25px 0;
+        }
+        .stat {
+            padding: 15px;
+            background: rgba(99, 102, 241, 0.1);
+            border-radius: 12px;
+        }
+        .stat-number {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #6366f1;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
         .form-group {
             margin-bottom: 20px;
             text-align: left;
         }
-        
-        label {
+        .form-label {
             display: block;
             margin-bottom: 8px;
-            font-weight: 500;
-            color: #374151;
+            font-weight: 600;
+            color: #333;
         }
-        
-        input {
+        .form-input {
             width: 100%;
             padding: 12px 16px;
             border: 2px solid #e5e7eb;
             border-radius: 12px;
-            font-size: 16px;
-            transition: all 0.3s ease;
-            background: white;
+            font-size: 1rem;
+            transition: border-color 0.2s;
         }
-        
-        input:focus {
+        .form-input:focus {
             outline: none;
             border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
         }
-        
-        .btn {
+        .submit-btn {
             width: 100%;
-            padding: 16px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            padding: 14px 20px;
+            background: #6366f1;
             color: white;
             border: none;
             border-radius: 12px;
-            font-size: 16px;
+            font-size: 1rem;
             font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s ease;
-            margin-bottom: 16px;
+            transition: all 0.2s;
+            margin-bottom: 15px;
         }
-        
-        .btn:hover {
+        .submit-btn:hover {
+            background: #4f46e5;
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
         }
-        
-        .btn-secondary {
-            background: linear-gradient(135deg, #10b981, #059669);
-        }
-        
-        .btn-secondary:hover {
-            box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
-            margin: 24px 0;
-            padding: 20px;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
-            border-radius: 16px;
-        }
-        
-        .stat {
-            text-align: center;
-        }
-        
-        .stat-number {
-            font-size: 20px;
-            font-weight: bold;
-            color: #6366f1;
-        }
-        
-        .stat-label {
-            font-size: 12px;
-            color: #6b7280;
-            margin-top: 4px;
-        }
-        
-        .features {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin: 24px 0;
-        }
-        
-        .feature {
-            padding: 12px;
-            background: rgba(99, 102, 241, 0.05);
-            border-radius: 12px;
-            text-align: center;
-        }
-        
-        .feature-icon {
-            font-size: 24px;
-            margin-bottom: 8px;
-        }
-        
-        .feature-label {
-            font-size: 12px;
-            color: #6b7280;
-            font-weight: 500;
-        }
-        
-        .error {
-            background: #fef2f2;
-            border: 1px solid #fecaca;
-            color: #dc2626;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-        
-        .success {
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            color: #16a34a;
-            padding: 12px;
-            border-radius: 8px;
-            margin-bottom: 16px;
-            font-size: 14px;
-        }
-        
-        .loading {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
-        
-        .spinner {
-            width: 20px;
-            height: 20px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-top: 2px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .link {
+        .switch-link {
             color: #6366f1;
             text-decoration: none;
-            font-weight: 500;
+            font-weight: 600;
         }
-        
-        .link:hover {
-            text-decoration: underline;
-        }
-        
         .pwa-install {
-            position: fixed;
+            position: absolute;
             top: 20px;
             right: 20px;
-            background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            border: none;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-size: 14px;
+            padding: 8px 16px;
+            background: white;
+            border: 2px solid #6366f1;
+            border-radius: 20px;
+            color: #6366f1;
+            font-size: 0.8rem;
+            font-weight: 600;
             cursor: pointer;
             display: none;
-            animation: pulse 2s infinite;
         }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+        .message {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 15px 0;
+            display: none;
         }
-        
-        @media (max-width: 480px) {
-            .container {
-                margin: 10px;
-                padding: 24px;
-            }
-            
-            .stats {
-                grid-template-columns: 1fr;
-                gap: 12px;
-            }
-        }
+        .success { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+        .error { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
     </style>
 </head>
 <body>
-    <!-- PWA Install Button -->
-    <button id="pwaInstall" class="pwa-install">📱 Install App</button>
-    
     <div class="container">
-        <!-- Logo -->
-        <div class="logo"></div>
+        <button id="installBtn" class="pwa-install">📱 Install App</button>
         
-        <!-- App Title -->
-        <h1>StriveTrack</h1>
-        <p class="subtitle">Transform Your Fitness Journey</p>
-        
-        <!-- Features -->
-        <div class="features">
-            <div class="feature">
-                <div class="feature-icon">📸</div>
-                <div class="feature-label">Progress Photos</div>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🏆</div>
-                <div class="feature-label">Achievements</div>
-            </div>
-            <div class="feature">
-                <div class="feature-icon">🎯</div>
-                <div class="feature-label">Goals</div>
-            </div>
+        <div class="header">
+            <h1 class="logo">StriveTrack</h1>
+            <p class="subtitle">Transform Your Fitness Journey</p>
         </div>
         
-        <!-- Stats -->
         <div class="stats">
             <div class="stat">
-                <div class="stat-number">10k+</div>
-                <div class="stat-label">Transformations</div>
+                <div class="stat-number">10K+</div>
+                <div class="stat-label">Members</div>
             </div>
             <div class="stat">
-                <div class="stat-number">98%</div>
+                <div class="stat-number">95%</div>
                 <div class="stat-label">Success Rate</div>
             </div>
             <div class="stat">
-                <div class="stat-number">24/7</div>
-                <div class="stat-label">Support</div>
+                <div class="stat-number">2M+</div>
+                <div class="stat-label">Photos</div>
             </div>
         </div>
         
-        <!-- Login Form -->
-        <form id="loginForm">
-            <div id="message"></div>
-            
-            <div class="form-group">
-                <label for="email">📧 Email Address</label>
-                <input type="email" id="email" placeholder="your.email@example.com" required>
-            </div>
-            
-            <div class="form-group">
-                <label for="password">🔒 Password</label>
-                <input type="password" id="password" placeholder="Your secure password" required>
-            </div>
-            
-            <button type="submit" class="btn">
-                <span class="btn-text">⚡ Power Up & Sign In</span>
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <span>Signing you in...</span>
+        <div id="authForm">
+            <div id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="email" class="form-input" placeholder="Enter your email" />
                 </div>
-            </button>
-        </form>
-        
-        <!-- Registration Link -->
-        <p style="margin-bottom: 16px; color: #6b7280;">
-            New to StriveTrack?
-        </p>
-        <button onclick="showRegistration()" class="btn btn-secondary">
-            ✨ Start Your Transformation
-        </button>
-        
-        <!-- Quick Tip -->
-        <div style="margin-top: 24px; padding: 16px; background: rgba(99, 102, 241, 0.05); border-radius: 12px; border-left: 4px solid #6366f1;">
-            <p style="font-size: 14px; color: #6b7280; margin-bottom: 8px;">
-                <strong>💡 Quick Tip:</strong>
-            </p>
-            <p style="font-size: 13px; color: #6b7280;">
-                Use the same email and password you created during registration. Need help? We're here for you! 💪
-            </p>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="Enter your password" />
+                </div>
+                <button type="button" id="loginBtn" class="submit-btn">💪 Power Up & Sign In</button>
+                <a href="#" id="switchToRegister" class="switch-link">Ready to transform? Sign up!</a>
+            </div>
+            
+            <div id="registerForm" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="regEmail" class="form-input" placeholder="Enter your email" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" id="regPassword" class="form-input" placeholder="Create password (8+ chars)" />
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Full Name</label>
+                    <input type="text" id="regName" class="form-input" placeholder="Enter your name" />
+                </div>
+                <button type="button" id="registerBtn" class="submit-btn">🚀 Start My Transformation!</button>
+                <a href="#" id="switchToLogin" class="switch-link">Have an account? Sign in!</a>
+            </div>
         </div>
+        
+        <div id="message" class="message"></div>
     </div>
-    
+
     <script>
-        // API Configuration
-        const API_BASE_URL = 'https://strivetrack-media-api.iamhollywoodpro.workers.dev';
-        
-        // PWA Install functionality
+        // PWA Install
         let deferredPrompt;
-        const pwaInstallBtn = document.getElementById('pwaInstall');
-        
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredPrompt = e;
-            pwaInstallBtn.style.display = 'block';
+            document.getElementById('installBtn').style.display = 'block';
         });
         
-        pwaInstallBtn.addEventListener('click', async () => {
+        document.getElementById('installBtn').addEventListener('click', async () => {
             if (deferredPrompt) {
                 deferredPrompt.prompt();
-                const { outcome } = await deferredPrompt.userChoice;
                 deferredPrompt = null;
-                pwaInstallBtn.style.display = 'none';
+                document.getElementById('installBtn').style.display = 'none';
             }
         });
         
-        // Login Form Handler
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+        // Form switching
+        document.getElementById('switchToRegister').addEventListener('click', (e) => {
             e.preventDefault();
-            
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('registerForm').style.display = 'block';
+        });
+        
+        document.getElementById('switchToLogin').addEventListener('click', (e) => {
+            e.preventDefault();
+            document.getElementById('registerForm').style.display = 'none';
+            document.getElementById('loginForm').style.display = 'block';
+        });
+        
+        // Auth functions
+        function showMessage(msg, type) {
+            const el = document.getElementById('message');
+            el.textContent = msg;
+            el.className = `message ${type}`;
+            el.style.display = 'block';
+            setTimeout(() => el.style.display = 'none', 5000);
+        }
+        
+        async function handleLogin() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
-            const messageDiv = document.getElementById('message');
-            const btnText = document.querySelector('.btn-text');
-            const loading = document.querySelector('.loading');
-            const submitBtn = document.querySelector('.btn');
             
-            // Show loading state
-            btnText.style.display = 'none';
-            loading.style.display = 'flex';
-            submitBtn.disabled = true;
-            messageDiv.innerHTML = '';
+            if (!email || !password) {
+                showMessage('Please fill all fields', 'error');
+                return;
+            }
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
+                const response = await fetch('https://strivetrack-api.iamhollywoodpro.workers.dev/api/auth/login', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ email, password }),
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
                 });
                 
                 const data = await response.json();
-                
-                if (response.ok) {
-                    messageDiv.innerHTML = '<div class="success">🎉 Welcome back! Redirecting to your dashboard...</div>';
-                    
-                    // Store the token
+                if (response.ok && data.success) {
                     localStorage.setItem('strivetrack_token', data.token);
-                    localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
-                    
-                    // Check if user is admin
-                    if (data.user.email === 'iamhollywoodpro@protonmail.com') {
-                        setTimeout(() => {
-                            window.location.href = '/admin-dashboard';
-                        }, 1500);
-                    } else {
-                        setTimeout(() => {
-                            window.location.href = '/dashboard';
-                        }, 1500);
-                    }
+                    showMessage('Welcome back! Redirecting...', 'success');
+                    setTimeout(() => window.location.href = '/dashboard', 1500);
                 } else {
-                    messageDiv.innerHTML = `<div class="error">❌ ${data.error || 'Login failed. Please check your credentials.'}</div>`;
+                    showMessage(data.message || 'Login failed', 'error');
                 }
             } catch (error) {
-                console.error('Login error:', error);
-                messageDiv.innerHTML = '<div class="error">❌ Connection error. Please check your internet and try again.</div>';
-            } finally {
-                // Reset button state
-                btnText.style.display = 'block';
-                loading.style.display = 'none';
-                submitBtn.disabled = false;
+                showMessage('Network error. Try again.', 'error');
             }
-        });
-        
-        // Registration redirect
-        function showRegistration() {
-            window.location.href = '/user-registration';
         }
         
-        // Check if user is already logged in
-        const token = localStorage.getItem('strivetrack_token');
-        if (token) {
-            const user = JSON.parse(localStorage.getItem('strivetrack_user') || '{}');
-            if (user.email === 'iamhollywoodpro@protonmail.com') {
-                window.location.href = '/admin-dashboard';
-            } else {
-                window.location.href = '/dashboard';
+        async function handleRegister() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            const name = document.getElementById('regName').value;
+            
+            if (!email || !password || !name) {
+                showMessage('Please fill all fields', 'error');
+                return;
             }
+            
+            if (password.length < 8) {
+                showMessage('Password must be 8+ characters', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('https://strivetrack-api.iamhollywoodpro.workers.dev/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, full_name: name })
+                });
+                
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    localStorage.setItem('strivetrack_token', data.token);
+                    showMessage('Account created! Welcome! 🎉', 'success');
+                    setTimeout(() => window.location.href = '/dashboard', 1500);
+                } else {
+                    showMessage(data.message || 'Registration failed', 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Try again.', 'error');
+            }
+        }
+        
+        // Event listeners
+        document.getElementById('loginBtn').addEventListener('click', handleLogin);
+        document.getElementById('registerBtn').addEventListener('click', handleRegister);
+        
+        // Check if already logged in
+        if (localStorage.getItem('strivetrack_token')) {
+            window.location.href = '/dashboard';
+        }
+        
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js');
         }
     </script>
 </body>
