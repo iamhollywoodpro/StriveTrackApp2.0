@@ -1,104 +1,251 @@
-// REPLACED SUPABASE WITH CLOUDFLARE AUTH!
-import { supabase, cloudflareAuth } from './cloudflareAuth.js';
+// PURE CLOUDFLARE ARCHITECTURE - NO SUPABASE!
+// This file maintains compatibility with existing imports but uses only Cloudflare
 
-// Export the Cloudflare auth client as supabase for compatibility
-export { supabase };
+console.log('🚀 Pure Cloudflare Auth & Storage - NO SUPABASE DEPENDENCIES!');
 
 // Helper function to check if user is admin
 export const isAdminUser = (user) => {
-  return (user?.email || '').toLowerCase() === 'iamhollywoodpro@protonmail.com'
-}
+  const adminEmails = ['iamhollywoodpro@protonmail.com'];
+  return user && adminEmails.includes((user.email || '').toLowerCase());
+};
 
-export const getAccessToken = async () => {
-  const { data } = await supabase.auth.getSession()
-  return data?.session?.access_token || null
-}
+// Get auth token from localStorage (Cloudflare format)
+export const getAccessToken = () => {
+  return localStorage.getItem('strivetrack_token');
+};
 
-// Storage utilities - NOW USING CLOUDFLARE R2!
-const MEDIA_API_BASE = 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+// Cloudflare R2 Storage utilities
+const MEDIA_API_BASE = process.env.MEDIA_API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
 
 export const uploadFile = async (bucketName, filePath, file, options = {}) => {
   try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    const token = getAccessToken();
     
     if (!token) {
       throw new Error('Authentication required for upload');
     }
 
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('bucket', bucketName);
+    formData.append('path', filePath);
+    
+    // Add any additional options
+    Object.keys(options).forEach(key => {
+      formData.append(key, options[key]);
+    });
+
     const response = await fetch(`${MEDIA_API_BASE}/upload`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
-        'x-file-name': filePath || file.name,
-        'Content-Type': file.type
       },
-      body: file
+      body: formData
     });
 
+    const result = await response.json();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Upload failed: ${errorText}`);
+      throw new Error(result.message || 'Upload failed');
     }
 
-    const result = await response.json();
-    return { 
-      data: { 
-        path: result.key,
-        fullPath: result.key,
-        key: result.key
-      }, 
-      error: null 
+    return {
+      data: {
+        path: result.url,
+        fullPath: result.path,
+        id: result.id || filePath,
+        Key: result.key || filePath
+      },
+      error: null
     };
   } catch (error) {
     console.error('Upload error:', error);
-    return { data: null, error: { message: error.message } };
+    return {
+      data: null,
+      error: error
+    };
   }
-}
-
-export const getFileUrl = async (bucketName, filePath, isPublic = false) => {
-  try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
-    
-    // Build Cloudflare media URL
-    let url = `${MEDIA_API_BASE}/media/${encodeURIComponent(filePath)}`;
-    if (token) {
-      url += `?token=${encodeURIComponent(token)}`;
-    }
-    
-    return { url, error: null };
-  } catch (error) {
-    console.error('Get file URL error:', error);
-    return { url: null, error: { message: error.message } };
-  }
-}
+};
 
 export const deleteFile = async (bucketName, filePath) => {
   try {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData?.session?.access_token;
+    const token = getAccessToken();
     
     if (!token) {
       throw new Error('Authentication required for delete');
     }
 
-    const response = await fetch(`${MEDIA_API_BASE}/media/${encodeURIComponent(filePath)}`, {
+    const response = await fetch(`${MEDIA_API_BASE}/delete`, {
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${token}`
-      }
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        bucket: bucketName,
+        path: filePath
+      })
     });
 
+    const result = await response.json();
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Delete failed: ${errorText}`);
+      throw new Error(result.message || 'Delete failed');
     }
 
-    const result = await response.json();
-    return { data: result, error: null };
+    return {
+      data: result,
+      error: null
+    };
   } catch (error) {
     console.error('Delete error:', error);
-    return { data: null, error: { message: error.message } };
+    return {
+      data: null,
+      error: error
+    };
   }
-}
+};
+
+export const getPublicUrl = (bucketName, filePath) => {
+  // Return the Cloudflare R2 public URL
+  return {
+    data: {
+      publicUrl: `${MEDIA_API_BASE}/public/${bucketName}/${filePath}`
+    }
+  };
+};
+
+// Mock supabase object for compatibility with existing code
+export const supabase = {
+  auth: {
+    getSession: () => {
+      const token = getAccessToken();
+      const userData = localStorage.getItem('strivetrack_user');
+      
+      if (token && userData) {
+        const user = JSON.parse(userData);
+        return Promise.resolve({
+          data: {
+            session: {
+              access_token: token,
+              user: user
+            }
+          },
+          error: null
+        });
+      }
+      
+      return Promise.resolve({
+        data: { session: null },
+        error: null
+      });
+    },
+    
+    signInWithPassword: async ({ email, password }) => {
+      try {
+        const response = await fetch(`${MEDIA_API_BASE.replace('/api', '/api')}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          localStorage.setItem('strivetrack_token', data.token);
+          if (data.user) {
+            localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
+          }
+          
+          return {
+            data: {
+              user: data.user,
+              session: {
+                access_token: data.token,
+                user: data.user
+              }
+            },
+            error: null
+          };
+        } else {
+          return {
+            data: { user: null, session: null },
+            error: { message: data.message || 'Login failed' }
+          };
+        }
+      } catch (error) {
+        return {
+          data: { user: null, session: null },
+          error: { message: error.message || 'Network error' }
+        };
+      }
+    },
+    
+    signUp: async ({ email, password, options = {} }) => {
+      try {
+        const response = await fetch(`${MEDIA_API_BASE.replace('/api', '/api')}/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            email, 
+            password, 
+            full_name: options.data?.full_name || ''
+          })
+        });
+
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          localStorage.setItem('strivetrack_token', data.token);
+          if (data.user) {
+            localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
+          }
+          
+          return {
+            data: {
+              user: data.user,
+              session: {
+                access_token: data.token,
+                user: data.user
+              }
+            },
+            error: null
+          };
+        } else {
+          return {
+            data: { user: null, session: null },
+            error: { message: data.message || 'Registration failed' }
+          };
+        }
+      } catch (error) {
+        return {
+          data: { user: null, session: null },
+          error: { message: error.message || 'Network error' }
+        };
+      }
+    },
+    
+    signOut: async () => {
+      localStorage.removeItem('strivetrack_token');
+      localStorage.removeItem('strivetrack_user');
+      return {
+        error: null
+      };
+    }
+  },
+  
+  storage: {
+    from: (bucketName) => ({
+      upload: (path, file, options) => uploadFile(bucketName, path, file, options),
+      remove: (paths) => {
+        if (Array.isArray(paths)) {
+          return Promise.all(paths.map(path => deleteFile(bucketName, path)));
+        }
+        return deleteFile(bucketName, paths);
+      },
+      getPublicUrl: (path) => getPublicUrl(bucketName, path)
+    })
+  }
+};
+
+export default supabase;

@@ -799,13 +799,7 @@
                         localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
                     }
                     
-                    // Store session data that the React app expects
-                    const sessionData = {
-                        access_token: data.token,
-                        user: data.user,
-                        expires_at: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
-                    };
-                    localStorage.setItem('supabase.auth.token', JSON.stringify(sessionData));
+                    // Pure Cloudflare storage - no Supabase compatibility needed
                     
                     showMessage(isLogin ? 'Welcome back, warrior! 🔥' : 'Welcome to StriveTrack! Your journey begins now! 🚀', 'success');
                     

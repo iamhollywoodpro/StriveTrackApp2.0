@@ -1,96 +1,231 @@
-const API_BASE = process.env.API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api'
+// Pure Cloudflare API functions - NO SUPABASE
+console.log('🚀 API: Pure Cloudflare Worker Architecture - NO SUPABASE!');
 
-async function parseJSONSafe(res) {
+const API_BASE = process.env.API_BASE || 'https://strivetrack-media-api.iamhollywoodpro.workers.dev/api';
+
+// Helper to get auth token
+function getAuthToken() {
+  return localStorage.getItem('strivetrack_token');
+}
+
+// Helper to make authenticated requests
+export async function makeAuthenticatedRequest(endpoint, options = {}) {
+  const token = getAuthToken();
+  
+  const config = {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers,
+    },
+  };
+
+  const response = await fetch(`${API_BASE}${endpoint}`, config);
+  const data = await response.json();
+  
+  if (!response.ok) {
+    throw new Error(data.message || 'Request failed');
+  }
+  
+  return data;
+}
+
+// GET request to Cloudflare API
+export async function apiGet(path) {
   try {
-    return await res.json()
-  } catch (_) {
-    try {
-      const text = await res.text()
-      return { error: text }
-    } catch (_) {
-      return { error: 'Unknown error' }
+    return await makeAuthenticatedRequest(path);
+  } catch (error) {
+    console.error('API GET error:', error);
+    throw error;
+  }
+}
+
+// Send data to Cloudflare API
+export async function apiSend(method, path, data) {
+  try {
+    const options = {
+      method,
+      ...(data && { body: JSON.stringify(data) })
+    };
+    
+    return await makeAuthenticatedRequest(path, options);
+  } catch (error) {
+    console.error('API Send error:', error);
+    throw error;
+  }
+}
+
+// Upload file to Cloudflare R2
+export async function uploadFile(file, path = '/upload') {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      body: formData
+    });
+
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Upload failed');
     }
+    
+    return data;
+  } catch (error) {
+    console.error('File upload error:', error);
+    throw error;
   }
 }
 
-export async function apiGet(path, supabase) {
-  const { data } = await supabase.auth.getSession()
-  const token = data?.session?.access_token
-  const res = await fetch(API_BASE + path, {
-    headers: { 'Authorization': 'Bearer ' + token }
-  })
-  const json = await parseJSONSafe(res)
-  if (!res.ok) {
-    const err = new Error(json?.error || `GET ${path} failed (${res.status})`)
-    err.response = json
-    throw err
+// Delete file from Cloudflare R2
+export async function deleteFile(fileUrl) {
+  try {
+    return await apiSend('DELETE', '/media/delete', { fileUrl });
+  } catch (error) {
+    console.error('File delete error:', error);
+    throw error;
   }
-  return json
 }
 
-export async function apiSend(method, path, body, supabase) {
-  const { data } = await supabase.auth.getSession()
-  const token = data?.session?.access_token
-  const res = await fetch(API_BASE + path, {
-    method,
-    headers: {
-      'Authorization': 'Bearer ' + token,
-      'Content-Type': 'application/json'
-    },
-    body: body ? JSON.stringify(body) : null
-  })
-  const json = await parseJSONSafe(res)
-  if (!res.ok) {
-    const err = new Error(json?.error || `${method} ${path} failed (${res.status})`)
-    err.response = json
-    throw err
-  }
-  return json
-}
+// Progress photo operations
+export const progressPhotoAPI = {
+  async getAll() {
+    return await apiGet('/progress-photos');
+  },
+  
+  async upload(file, metadata = {}) {
+    const formData = new FormData();
+    formData.append('file', file);
+    Object.keys(metadata).forEach(key => {
+      formData.append(key, metadata[key]);
+    });
+    
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE}/progress-photos/upload`, {
+      method: 'POST',
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      body: formData
+    });
 
-export async function apiUpload(file, supabase) {
-  if (!file) {
-    throw new Error('No file provided')
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message || 'Upload failed');
+    }
+    
+    return data;
+  },
+  
+  async delete(photoId) {
+    return await apiSend('DELETE', `/progress-photos/${photoId}`);
   }
+};
+
+// Workout operations
+export const workoutAPI = {
+  async getAll() {
+    return await apiGet('/workouts');
+  },
   
-  // Validate file size (50MB max)
-  const MAX_SIZE = 50 * 1024 * 1024
-  if (file.size > MAX_SIZE) {
-    throw new Error('File size must be less than 50MB')
+  async create(workoutData) {
+    return await apiSend('POST', '/workouts', workoutData);
+  },
+  
+  async update(workoutId, workoutData) {
+    return await apiSend('PUT', `/workouts/${workoutId}`, workoutData);
+  },
+  
+  async delete(workoutId) {
+    return await apiSend('DELETE', `/workouts/${workoutId}`);
   }
+};
+
+// Nutrition operations
+export const nutritionAPI = {
+  async getAll() {
+    return await apiGet('/nutrition');
+  },
   
-  // Validate file type
-  const allowedTypes = [
-    'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
-    'video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 
-    'video/webm', 'video/3gpp', 'video/x-flv', 'video/mov'
-  ]
-  if (!allowedTypes.includes(file.type)) {
-    throw new Error('File type not supported. Please use images (JPEG, PNG, WebP, GIF) or videos (MP4, MOV, AVI, WebM, 3GP, FLV)')
+  async create(nutritionData) {
+    return await apiSend('POST', '/nutrition', nutritionData);
+  },
+  
+  async update(nutritionId, nutritionData) {
+    return await apiSend('PUT', `/nutrition/${nutritionId}`, nutritionData);
+  },
+  
+  async delete(nutritionId) {
+    return await apiSend('DELETE', `/nutrition/${nutritionId}`);
   }
+};
+
+// Goals operations
+export const goalsAPI = {
+  async getAll() {
+    return await apiGet('/goals');
+  },
   
-  const { data } = await supabase.auth.getSession()
-  const token = data?.session?.access_token
+  async create(goalData) {
+    return await apiSend('POST', '/goals', goalData);
+  },
   
-  if (!token) {
-    throw new Error('Authentication required')
+  async update(goalId, goalData) {
+    return await apiSend('PUT', `/goals/${goalId}`, goalData);
+  },
+  
+  async delete(goalId) {
+    return await apiSend('DELETE', `/goals/${goalId}`);
   }
+};
+
+// Achievements operations
+export const achievementsAPI = {
+  async getAll() {
+    return await apiGet('/achievements');
+  },
   
-  const res = await fetch(API_BASE + '/upload', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + token,
-      'Content-Type': file.type,
-      'x-file-name': file.name
-    },
-    body: file
-  })
-  
-  const json = await parseJSONSafe(res)
-  if (!res.ok) {
-    const err = new Error(json?.error || `Upload failed (${res.status})`)
-    err.response = json
-    throw err
+  async unlock(achievementId) {
+    return await apiSend('POST', `/achievements/${achievementId}/unlock`);
   }
-  return json
-}
+};
+
+// Community operations
+export const communityAPI = {
+  async getPosts() {
+    return await apiGet('/community/posts');
+  },
+  
+  async createPost(postData) {
+    return await apiSend('POST', '/community/posts', postData);
+  },
+  
+  async likePost(postId) {
+    return await apiSend('POST', `/community/posts/${postId}/like`);
+  },
+  
+  async commentOnPost(postId, comment) {
+    return await apiSend('POST', `/community/posts/${postId}/comments`, { comment });
+  }
+};
+
+export default {
+  apiGet,
+  apiSend,
+  uploadFile,
+  deleteFile,
+  makeAuthenticatedRequest,
+  progressPhotoAPI,
+  workoutAPI,
+  nutritionAPI,
+  goalsAPI,
+  achievementsAPI,
+  communityAPI
+};

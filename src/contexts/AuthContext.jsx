@@ -1,35 +1,58 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase, isAdminUser } from '../lib/supabase';
-import { apiGet, apiSend } from '../lib/api';
 
-console.log('🚀 AuthContext: Using NEW Cloudflare Auth System - NO MORE SUPABASE!');
+console.log('🚀 AuthContext: Pure Cloudflare Architecture - NO SUPABASE!');
 
-const AuthContext = createContext({})
+const AuthContext = createContext({});
 
 export const useAuth = () => {
-  const context = useContext(AuthContext)
+  const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider')
+    throw new Error('useAuth must be used within AuthProvider');
   }
-  return context
-}
+  return context;
+};
+
+// Cloudflare API configuration
+const API_BASE = 'https://strivetrack-api.iamhollywoodpro.workers.dev/api';
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [userProfile, setUserProfile] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [profileLoading, setProfileLoading] = useState(false)
+  const [user, setUser] = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
 
-  // Separate async operations object
+  // Helper function to make authenticated API calls
+  const makeAuthenticatedRequest = async (endpoint, options = {}) => {
+    const token = localStorage.getItem('strivetrack_token');
+    
+    const config = {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+        ...options.headers,
+      },
+    };
+
+    const response = await fetch(`${API_BASE}${endpoint}`, config);
+    const data = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(data.message || 'Request failed');
+    }
+    
+    return data;
+  };
+
+  // Profile operations
   const profileOperations = {
     async load(userId) {
-      if (!userId) return
-      setProfileLoading(true)
+      if (!userId || !localStorage.getItem('strivetrack_token')) return;
+      
+      setProfileLoading(true);
       try {
-        // Use Worker API to load profile
-        const profile = await apiGet('/profile', supabase)
+        const profile = await makeAuthenticatedRequest('/profile');
         if (profile) {
-          // Transform Worker profile format to match expected format
           const transformedProfile = {
             id: userId,
             full_name: profile.name || '',
@@ -37,160 +60,199 @@ export const AuthProvider = ({ children }) => {
             height: profile.targets?.height || '',
             weight: profile.targets?.weight || '',
             goals: profile.targets?.goals || '',
-            profile_picture_path: null // Will be set separately if needed
-          }
-          setUserProfile(transformedProfile)
+            profile_picture_path: null
+          };
+          setUserProfile(transformedProfile);
         }
       } catch (error) {
-        console.error('Profile load error:', error)
+        console.error('Profile load error:', error);
       } finally {
-        setProfileLoading(false)
+        setProfileLoading(false);
       }
     },
     
     clear() {
-      setUserProfile(null)
-      setProfileLoading(false)
+      setUserProfile(null);
+      setProfileLoading(false);
     }
-  }
+  };
 
-  // Protected auth handlers - MUST remain synchronous
-  const authStateHandlers = {
-    onChange: (event, session) => {
-      const authUser = session?.user ?? null
-      setUser(authUser)
-      setLoading(false)
-      
-      // Update document title based on auth state
-      if (authUser) {
-        document.title = 'Dashboard | StriveTracker - A Complete Fitness Tracker Reimagined'
-        profileOperations?.load(authUser?.id) // Fire-and-forget
-      } else {
-        document.title = 'Sign In | StriveTracker - A Complete Fitness Tracker Reimagined'
-        profileOperations?.clear()
-      }
-    }
-  }
-
+  // Check if user is authenticated on mount
   useEffect(() => {
-    // Get initial session
-    supabase?.auth?.getSession()?.then((result) => {
-      const session = result?.data?.session;
-      authStateHandlers?.onChange(null, session)
-    }).catch((error) => {
-      console.error('Initial session error:', error);
-      authStateHandlers?.onChange(null, null);
-    });
-
-    // Listen for auth changes
-    try {
-      const unsubscribe = supabase?.auth?.onAuthStateChange?.(
-        authStateHandlers?.onChange
-      );
-
-      return () => {
-        if (typeof unsubscribe === 'function') {
-          unsubscribe();
-        } else if (unsubscribe?.unsubscribe) {
-          unsubscribe.unsubscribe();
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('strivetrack_token');
+      const userData = localStorage.getItem('strivetrack_user');
+      
+      if (token && userData) {
+        try {
+          // Verify token is still valid with Cloudflare API
+          const response = await makeAuthenticatedRequest('/auth/verify');
+          if (response.success) {
+            const user = JSON.parse(userData);
+            setUser(user);
+            document.title = 'Dashboard | StriveTracker - A Complete Fitness Tracker Reimagined';
+            profileOperations.load(user.id);
+          } else {
+            // Token invalid, clear auth
+            clearAuth();
+          }
+        } catch (error) {
+          console.error('Token verification failed:', error);
+          clearAuth();
         }
-      };
-    } catch (error) {
-      console.error('Auth listener error:', error);
-    }
-  }, [])
+      } else {
+        document.title = 'Sign In | StriveTracker - A Complete Fitness Tracker Reimagined';
+      }
+      
+      setLoading(false);
+    };
 
+    initializeAuth();
+  }, []);
+
+  // Clear authentication data
+  const clearAuth = () => {
+    localStorage.removeItem('strivetrack_token');
+    localStorage.removeItem('strivetrack_user');
+    setUser(null);
+    profileOperations.clear();
+    document.title = 'Sign In | StriveTracker - A Complete Fitness Tracker Reimagined';
+  };
+
+  // Sign in with Cloudflare API
   const signIn = async (email, password) => {
     try {
-      const { data, error } = await supabase?.auth?.signInWithPassword({
-        email,
-        password
-      })
-      return { user: data?.user, error }
-    } catch (error) {
-      console.error('Sign in error:', error)
-      return { user: null, error }
-    }
-  }
+      const response = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
 
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        // Store authentication data
+        localStorage.setItem('strivetrack_token', data.token);
+        if (data.user) {
+          localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
+          setUser(data.user);
+          profileOperations.load(data.user.id);
+        }
+        
+        return { user: data.user, error: null };
+      } else {
+        return { user: null, error: { message: data.message || 'Login failed' } };
+      }
+    } catch (error) {
+      console.error('Sign in error:', error);
+      return { user: null, error: { message: 'Network error. Please try again.' } };
+    }
+  };
+
+  // Sign up with Cloudflare API
   const signUp = async (email, password, metadata = {}) => {
     try {
-      const { data, error } = await supabase?.auth?.signUp({
-        email,
-        password,
-        options: {
-          data: metadata
-        }
-      })
-      return { user: data?.user, error }
-    } catch (error) {
-      console.error('Sign up error:', error)
-      return { user: null, error }
-    }
-  }
+      const response = await fetch(`${API_BASE}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          full_name: metadata.full_name || ''
+        })
+      });
 
+      const data = await response.json();
+      
+      if (response.ok && data.success) {
+        // Store authentication data
+        localStorage.setItem('strivetrack_token', data.token);
+        if (data.user) {
+          localStorage.setItem('strivetrack_user', JSON.stringify(data.user));
+          setUser(data.user);
+          profileOperations.load(data.user.id);
+        }
+        
+        return { user: data.user, error: null };
+      } else {
+        return { user: null, error: { message: data.message || 'Registration failed' } };
+      }
+    } catch (error) {
+      console.error('Sign up error:', error);
+      return { user: null, error: { message: 'Network error. Please try again.' } };
+    }
+  };
+
+  // Sign out
   const signOut = async () => {
     try {
-      const { error } = await supabase?.auth?.signOut()
-      return { error }
+      // Optional: Call logout endpoint to invalidate token on server
+      await makeAuthenticatedRequest('/auth/logout', { method: 'POST' });
     } catch (error) {
-      console.error('Sign out error:', error)
-      return { error }
+      // Continue with client-side logout even if server call fails
+      console.error('Server logout error:', error);
     }
-  }
+    
+    clearAuth();
+    return { error: null };
+  };
 
+  // Update profile
   const updateProfile = async (updates) => {
-    if (!user?.id) return { error: new Error('No user logged in') }
+    if (!user?.id) return { error: new Error('No user logged in') };
     
     try {
-      // Use Worker API to update profile
       const profileData = {
         name: updates.full_name,
         bio: updates.bio,
-        targets: {
-          height: updates.height,
-          weight: updates.weight,
-          goals: updates.goals
-        }
-      }
-      
-      const result = await apiSend('PUT', '/profile', profileData, supabase)
-      
+        height: updates.height,
+        weight: updates.weight,
+        goals: updates.goals
+      };
+
+      const result = await makeAuthenticatedRequest('/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profileData)
+      });
+
       if (result.success) {
         // Update local profile state
-        const updatedProfile = {
-          ...userProfile,
-          full_name: updates.full_name,
-          bio: updates.bio,
-          height: updates.height,
-          weight: updates.weight,
-          goals: updates.goals
-        }
-        setUserProfile(updatedProfile)
+        const updatedProfile = { ...userProfile, ...updates };
+        setUserProfile(updatedProfile);
+        return { data: updatedProfile, error: null };
+      } else {
+        return { data: null, error: new Error(result.message || 'Update failed') };
       }
-
-      return { data: result, error: null }
     } catch (error) {
-      console.error('Profile update error:', error)
-      return { data: null, error }
+      console.error('Profile update error:', error);
+      return { data: null, error };
     }
-  }
+  };
+
+  // Check if user is admin (simple email-based check)
+  const isAdminUser = (user) => {
+    const adminEmails = ['iamhollywoodpro@protonmail.com'];
+    return user && adminEmails.includes(user.email?.toLowerCase());
+  };
 
   const value = {
     user,
     userProfile,
     loading,
     profileLoading,
-    isAdmin: isAdminUser(user) || userProfile?.is_admin === true,
     signIn,
     signUp,
     signOut,
-    updateProfile
-  }
+    updateProfile,
+    isAdminUser: isAdminUser(user),
+    makeAuthenticatedRequest
+  };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
+
+export default AuthProvider;
