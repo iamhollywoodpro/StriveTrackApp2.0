@@ -150,9 +150,9 @@ function Dashboard() {
                 <span className="text-xl">📈</span>
                 <span className="text-sm">Progress & Media</span>
               </a>
-              <a href="/community" className="btn btn-secondary p-4 flex flex-col items-center space-y-2 hover:bg-primary-50">
-                <span className="text-xl">👥</span>
-                <span className="text-sm">Community</span>
+              <a href="/social" className="btn btn-secondary p-4 flex flex-col items-center space-y-2 hover:bg-primary-50">
+                <span className="text-xl">🌟</span>
+                <span className="text-sm">Social Hub</span>
               </a>
               {user?.is_admin && (
                 <a href="/admin" className="btn btn-primary p-4 flex flex-col items-center space-y-2">

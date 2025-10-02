@@ -8,7 +8,7 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import HabitsGoals from './pages/HabitsGoals/HabitsGoals';
 import Nutrition from './pages/Nutrition/Nutrition';
 import ProgressMedia from './pages/ProgressMedia/ProgressMedia';
-import Community from './pages/Social/Community';
+import Social from './pages/Social/Social';
 import AdminDashboard from './pages/Admin/AdminDashboard';
 
 // Import components
@@ -46,9 +46,9 @@ function App() {
                 <ProgressMedia />
               </ProtectedRoute>
             } />
-            <Route path="/community" element={
+            <Route path="/social" element={
               <ProtectedRoute>
-                <Community />
+                <Social />
               </ProtectedRoute>
             } />
             
