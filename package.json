@@ -62,9 +62,15 @@
     "use-sound": "^5.0.0"
   },
   "scripts": {
-    "start": "vite --port 3000 --strictPort",
-    "build": "vite build",
-    "serve": "vite preview --port 3000 --strictPort"
+    "start": "vite --port 3000 --strictPort --host 0.0.0.0",
+    "build": "NODE_OPTIONS='--max-old-space-size=4096' vite build --mode production",
+    "build:fast": "NODE_OPTIONS='--max-old-space-size=2048' vite build --mode development", 
+    "build:lean": "NODE_OPTIONS='--max-old-space-size=1024' vite --config vite.config.LEAN.mjs build --mode development",
+    "build:super-fast": "rm -rf dist && NODE_OPTIONS='--max-old-space-size=1024 --no-warnings' vite --config vite.config.LEAN.mjs build --mode development",
+    "build:debug": "NODE_OPTIONS='--max-old-space-size=4096' vite build --mode production --debug",
+    "serve": "vite preview --port 3000 --strictPort --host 0.0.0.0",
+    "clean": "rm -rf dist node_modules/.vite* .vite*",
+    "prebuild": "npm run clean"
   },
   "eslintConfig": {
     "extends": [
