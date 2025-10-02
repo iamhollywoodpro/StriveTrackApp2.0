@@ -1,17 +1,27 @@
 import React, { useState } from 'react';
 import MediaModeration from '../../components/admin/MediaModeration';
+import UserManagement from '../../components/admin/UserManagement';
+import ContentAnalytics from '../../components/admin/ContentAnalytics';
+import SystemConfiguration from '../../components/admin/SystemConfiguration';
+import AdminInsights from '../../components/admin/AdminInsights';
+import AuditLogs from '../../components/admin/AuditLogs';
+import AutomatedModeration from '../../components/admin/AutomatedModeration';
 
 function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('insights');
 
   // Sample admin statistics
   const stats = {
-    totalUsers: 1247,
-    activeUsers: 893,
-    totalMedia: 2856,
-    flaggedMedia: 12,
-    pendingReports: 3,
-    todayUploads: 47
+    totalUsers: 12567,
+    activeUsers: 8934,
+    totalMedia: 34567,
+    flaggedMedia: 23,
+    pendingReports: 7,
+    todayUploads: 234,
+    systemHealth: 99.9,
+    serverLoad: 23,
+    storageUsed: 67,
+    activeConnections: 1234
   };
 
   return (
@@ -35,6 +45,7 @@ function AdminDashboard() {
               <div>
                 <p className="text-blue-600 font-medium">Total Users</p>
                 <p className="text-2xl font-bold text-blue-900">{stats.totalUsers.toLocaleString()}</p>
+                <p className="text-xs text-blue-700">+5.2% this month</p>
               </div>
               <div className="text-blue-500 text-3xl">👥</div>
             </div>
@@ -45,201 +56,171 @@ function AdminDashboard() {
               <div>
                 <p className="text-green-600 font-medium">Active Users</p>
                 <p className="text-2xl font-bold text-green-900">{stats.activeUsers.toLocaleString()}</p>
+                <p className="text-xs text-green-700">71% engagement rate</p>
               </div>
-              <div className="text-green-500 text-3xl">🟢</div>
+              <div className="text-green-500 text-3xl">🔥</div>
             </div>
           </div>
 
           <div className="card p-6 bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-600 font-medium">Total Media</p>
+                <p className="text-purple-600 font-medium">Total Content</p>
                 <p className="text-2xl font-bold text-purple-900">{stats.totalMedia.toLocaleString()}</p>
+                <p className="text-xs text-purple-700">{stats.todayUploads} added today</p>
               </div>
-              <div className="text-purple-500 text-3xl">📸</div>
+              <div className="text-purple-500 text-3xl">📝</div>
+            </div>
+          </div>
+
+          <div className="card p-6 bg-gradient-to-r from-emerald-50 to-green-50 border border-emerald-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-emerald-600 font-medium">System Health</p>
+                <p className="text-2xl font-bold text-emerald-900">{stats.systemHealth}%</p>
+                <p className="text-xs text-emerald-700">All systems operational</p>
+              </div>
+              <div className="text-emerald-500 text-3xl">🟢</div>
+            </div>
+          </div>
+
+          <div className="card p-6 bg-gradient-to-r from-slate-50 to-gray-50 border border-slate-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-slate-600 font-medium">Server Load</p>
+                <p className="text-2xl font-bold text-slate-900">{stats.serverLoad}%</p>
+                <p className="text-xs text-slate-700">CPU utilization</p>
+              </div>
+              <div className="text-slate-500 text-3xl">⚡</div>
             </div>
           </div>
 
           <div className="card p-6 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-600 font-medium">Today's Uploads</p>
-                <p className="text-2xl font-bold text-orange-900">{stats.todayUploads}</p>
+                <p className="text-orange-600 font-medium">Storage Used</p>
+                <p className="text-2xl font-bold text-orange-900">{stats.storageUsed}%</p>
+                <p className="text-xs text-orange-700">Of allocated space</p>
               </div>
-              <div className="text-orange-500 text-3xl">📤</div>
+              <div className="text-orange-500 text-3xl">💾</div>
+            </div>
+          </div>
+
+          <div className="card p-6 bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-indigo-600 font-medium">Live Sessions</p>
+                <p className="text-2xl font-bold text-indigo-900">{stats.activeConnections.toLocaleString()}</p>
+                <p className="text-xs text-indigo-700">Active connections</p>
+              </div>
+              <div className="text-indigo-500 text-3xl">🌐</div>
             </div>
           </div>
 
           <div className="card p-6 bg-gradient-to-r from-red-50 to-pink-50 border border-red-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-red-600 font-medium">Flagged Media</p>
-                <p className="text-2xl font-bold text-red-900">{stats.flaggedMedia}</p>
+                <p className="text-red-600 font-medium">Action Required</p>
+                <p className="text-2xl font-bold text-red-900">{stats.flaggedMedia + stats.pendingReports}</p>
+                <p className="text-xs text-red-700">Items need review</p>
               </div>
-              <div className="text-red-500 text-3xl">🚩</div>
-            </div>
-          </div>
-
-          <div className="card p-6 bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-yellow-600 font-medium">Pending Reports</p>
-                <p className="text-2xl font-bold text-yellow-900">{stats.pendingReports}</p>
-              </div>
-              <div className="text-yellow-500 text-3xl">⚠️</div>
+              <div className="text-red-500 text-3xl">🚨</div>
             </div>
           </div>
         </div>
 
         {/* Tab Navigation */}
         <div className="mb-8">
-          <div className="flex space-x-2 bg-white p-2 rounded-xl shadow-sm">
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 bg-white p-2 rounded-xl shadow-sm">
             <button 
-              onClick={() => setActiveTab('overview')}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${
-                activeTab === 'overview' 
+              onClick={() => setActiveTab('insights')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all text-center ${
+                activeTab === 'insights' 
                   ? 'bg-purple-500 text-white shadow-md' 
-                  : 'text-slate-600 hover:text-purple-600'
+                  : 'text-slate-600 hover:text-purple-600 hover:bg-slate-50'
               }`}
             >
-              📊 Overview
-            </button>
-            <button 
-              onClick={() => setActiveTab('moderation')}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${
-                activeTab === 'moderation' 
-                  ? 'bg-purple-500 text-white shadow-md' 
-                  : 'text-slate-600 hover:text-purple-600'
-              }`}
-            >
-              🛡️ Media Moderation
+              <div>📊 Insights</div>
+              <div className="text-xs mt-1 opacity-75">Overview</div>
             </button>
             <button 
               onClick={() => setActiveTab('users')}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${
+              className={`px-4 py-3 rounded-lg font-medium transition-all text-center ${
                 activeTab === 'users' 
                   ? 'bg-purple-500 text-white shadow-md' 
-                  : 'text-slate-600 hover:text-purple-600'
+                  : 'text-slate-600 hover:text-purple-600 hover:bg-slate-50'
               }`}
             >
-              👥 User Management
+              <div>👥 Users</div>
+              <div className="text-xs mt-1 opacity-75">Management</div>
             </button>
             <button 
-              onClick={() => setActiveTab('settings')}
-              className={`flex-1 px-6 py-3 rounded-lg font-medium transition-all ${
-                activeTab === 'settings' 
+              onClick={() => setActiveTab('analytics')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all text-center ${
+                activeTab === 'analytics' 
                   ? 'bg-purple-500 text-white shadow-md' 
-                  : 'text-slate-600 hover:text-purple-600'
+                  : 'text-slate-600 hover:text-purple-600 hover:bg-slate-50'
               }`}
             >
-              ⚙️ Settings
+              <div>📈 Analytics</div>
+              <div className="text-xs mt-1 opacity-75">Content</div>
+            </button>
+            <button 
+              onClick={() => setActiveTab('moderation')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all text-center ${
+                activeTab === 'moderation' 
+                  ? 'bg-purple-500 text-white shadow-md' 
+                  : 'text-slate-600 hover:text-purple-600 hover:bg-slate-50'
+              }`}
+            >
+              <div>🛡️ Media</div>
+              <div className="text-xs mt-1 opacity-75">Moderation</div>
+            </button>
+            <button 
+              onClick={() => setActiveTab('ai-moderation')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all text-center ${
+                activeTab === 'ai-moderation' 
+                  ? 'bg-purple-500 text-white shadow-md' 
+                  : 'text-slate-600 hover:text-purple-600 hover:bg-slate-50'
+              }`}
+            >
+              <div>🤖 AI Mod</div>
+              <div className="text-xs mt-1 opacity-75">Automated</div>
+            </button>
+            <button 
+              onClick={() => setActiveTab('config')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all text-center ${
+                activeTab === 'config' 
+                  ? 'bg-purple-500 text-white shadow-md' 
+                  : 'text-slate-600 hover:text-purple-600 hover:bg-slate-50'
+              }`}
+            >
+              <div>⚙️ Config</div>
+              <div className="text-xs mt-1 opacity-75">System</div>
+            </button>
+            <button 
+              onClick={() => setActiveTab('audit')}
+              className={`px-4 py-3 rounded-lg font-medium transition-all text-center ${
+                activeTab === 'audit' 
+                  ? 'bg-purple-500 text-white shadow-md' 
+                  : 'text-slate-600 hover:text-purple-600 hover:bg-slate-50'
+              }`}
+            >
+              <div>📋 Audit</div>
+              <div className="text-xs mt-1 opacity-75">Logs</div>
             </button>
           </div>
         </div>
 
         {/* Tab Content */}
         <div className="space-y-8">
-          {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="card p-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">Recent Activity</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
-                    <div className="text-green-500">✅</div>
-                    <div className="flex-1">
-                      <p className="text-sm text-slate-900">New user registration: john_doe</p>
-                      <p className="text-xs text-slate-500">2 minutes ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
-                    <div className="text-blue-500">📤</div>
-                    <div className="flex-1">
-                      <p className="text-sm text-slate-900">Media uploaded by fitnessfan23</p>
-                      <p className="text-xs text-slate-500">5 minutes ago</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3 p-3 bg-slate-50 rounded-lg">
-                    <div className="text-red-500">🚩</div>
-                    <div className="flex-1">
-                      <p className="text-sm text-slate-900">Content flagged for review</p>
-                      <p className="text-xs text-slate-500">12 minutes ago</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="card p-6">
-                <h3 className="text-lg font-bold text-slate-900 mb-4">System Health</h3>
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Server CPU Usage</span>
-                      <span>23%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '23%' }}></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Storage Usage</span>
-                      <span>67%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div className="bg-yellow-500 h-2 rounded-full" style={{ width: '67%' }}></div>
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex justify-between text-sm mb-1">
-                      <span>Database Performance</span>
-                      <span>91%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 rounded-full h-2">
-                      <div className="bg-green-500 h-2 rounded-full" style={{ width: '91%' }}></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'moderation' && (
-            <div>
-              <div className="card p-6 mb-6">
-                <h2 className="text-xl font-bold text-slate-900 mb-2">Media Moderation Center</h2>
-                <p className="text-slate-600">
-                  Review, flag, and manage user-uploaded content across the platform.
-                </p>
-              </div>
-              <MediaModeration />
-            </div>
-          )}
-
-          {activeTab === 'users' && (
-            <div className="card p-6">
-              <h2 className="text-xl font-bold text-slate-900 mb-4">User Management</h2>
-              <p className="text-slate-600 mb-6">Coming in Phase 6 - Advanced Admin Features</p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800 font-medium">🚧 Feature Preview</p>
-                <p className="text-blue-700 text-sm mt-1">
-                  User management, role assignments, and account moderation tools will be available in the next phase.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'settings' && (
-            <div className="card p-6">
-              <h2 className="text-xl font-bold text-slate-900 mb-4">System Settings</h2>
-              <p className="text-slate-600 mb-6">Coming in Phase 6 - Advanced Admin Features</p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-blue-800 font-medium">🚧 Feature Preview</p>
-                <p className="text-blue-700 text-sm mt-1">
-                  System configuration, feature toggles, and advanced settings will be available in the next phase.
-                </p>
-              </div>
-            </div>
-          )}
+          {activeTab === 'insights' && <AdminInsights />}
+          {activeTab === 'users' && <UserManagement />}
+          {activeTab === 'analytics' && <ContentAnalytics />}
+          {activeTab === 'moderation' && <MediaModeration />}
+          {activeTab === 'ai-moderation' && <AutomatedModeration />}
+          {activeTab === 'config' && <SystemConfiguration />}
+          {activeTab === 'audit' && <AuditLogs />}
         </div>
 
         {/* Quick Actions */}
