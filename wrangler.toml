@@ -1,5 +1,10 @@
 name = "strivetrackapp2-0"
 compatibility_date = "2024-01-01"
+
+[build]
+command = "npm run build"
+publish = "dist"
+
 # Tell Wrangler/Pages where the built assets live
 pages_build_output_dir = "./dist"
 
