@@ -19,7 +19,8 @@ bucket_name = "strivetrack-media"
 # Environment Variables
 [env.production.vars]
 ENVIRONMENT = "production"
-API_BASE_URL = "https://strivetrackapp2-0.${CLOUDFLARE_ACCOUNT_ID}.workers.dev"
+API_BASE_URL = "https://api.strivetrackapp.com"
+CUSTOM_DOMAIN = "strivetrackapp.com"
 R2_BUCKET_NAME = "strivetrack-media"
 R2_PUBLIC_URL = "https://pub-${CLOUDFLARE_ACCOUNT_ID}.r2.dev"
 
@@ -35,7 +36,15 @@ command = "npm run build:production"
 cwd = "./"
 watch_dir = "src"
 
-# Custom domains (to be configured after deployment)
+# Custom Domain Configuration
+# After adding strivetrackapp.com in Cloudflare Pages Dashboard, 
+# uncomment these routes for production:
+
+# Main site routes
 # [[route]]
-# pattern = "strivetrack.app/*"
-# zone_name = "strivetrack.app"
+# pattern = "strivetrackapp.com/*"
+# zone_name = "strivetrackapp.com"
+
+# [[route]]  
+# pattern = "www.strivetrackapp.com/*"
+# zone_name = "strivetrackapp.com"

@@ -12,6 +12,7 @@
     "deploy:quick": "npm run build:production && npx wrangler pages deploy dist",
     "deploy:worker": "node deploy-worker.js",
     "deploy:full": "node preflight-check.js && node deploy.js && node deploy-worker.js",
+    "deploy:domain": "echo 'Setting up strivetrackapp.com...' && npm run deploy:full",
     "preflight": "node preflight-check.js",
     "preview": "npx wrangler pages dev dist --port 3001"
   },

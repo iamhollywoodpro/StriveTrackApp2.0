@@ -172,12 +172,19 @@ class StriveTrackDeployer {
   }
 
   async setupCustomDomain() {
-    this.log('Custom domain setup (manual step required)', 'warning');
-    this.log('To set up a custom domain:', 'info');
+    this.log('🌐 Custom Domain Setup for strivetrackapp.com', 'info');
+    this.log('✓ Configuration files already updated for your domain', 'success');
+    this.log('', 'info');
+    this.log('📋 Next steps to activate your custom domain:', 'info');
     this.log('1. Go to Cloudflare Dashboard > Pages > strivetrackapp2-0', 'info');
-    this.log('2. Navigate to Custom domains tab', 'info');
-    this.log('3. Add your domain and configure DNS records', 'info');
-    this.log('4. Update wrangler.toml route configuration', 'info');
+    this.log('2. Click "Custom domains" tab', 'info');
+    this.log('3. Add domain: strivetrackapp.com', 'info');
+    this.log('4. Add domain: www.strivetrackapp.com', 'info');
+    this.log('5. Configure DNS records (see DNS_CONFIG_strivetrackapp.com.txt)', 'info');
+    this.log('6. Wait for SSL certificate provisioning (5-10 minutes)', 'info');
+    this.log('', 'info');
+    this.log('📄 Detailed setup guide: CUSTOM_DOMAIN_SETUP.md', 'warning');
+    this.log('📄 DNS configuration: DNS_CONFIG_strivetrackapp.com.txt', 'warning');
   }
 
   async verifyDeployment(url) {
@@ -213,7 +220,8 @@ class StriveTrackDeployer {
 ║ Build Tool: Parcel                                          ║
 ║ Deployment Time: ${new Date().toISOString()}         ║
 ║                                                              ║
-║ 🌐 Live URL: ${url.padEnd(42)} ║
+║ 🌐 Temp URL: ${url.padEnd(41)} ║
+║ 🏆 Custom Domain: https://strivetrackapp.com            ║
 ║                                                              ║
 ║ Features Deployed:                                           ║
 ║ ✓ React Frontend with Router                                ║

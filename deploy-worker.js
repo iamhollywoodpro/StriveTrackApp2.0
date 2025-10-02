@@ -53,13 +53,19 @@ preview_id = ""
 # Environment Variables
 [vars]
 ENVIRONMENT = "production"
+CUSTOM_DOMAIN = "strivetrackapp.com"
 R2_PUBLIC_URL = "https://pub-ACCOUNT_ID.r2.dev"
-CORS_ORIGIN = "https://strivetrackapp2-0.pages.dev"
+CORS_ORIGIN = "https://strivetrackapp.com"
 
-# Routes (uncomment when custom domain is configured)
+# Custom Domain Routes (uncomment after DNS setup)
 # [[routes]]
-# pattern = "api.strivetrack.app/*"
-# zone_id = ""`;
+# pattern = "api.strivetrackapp.com/*"
+# zone_id = "YOUR_ZONE_ID_HERE"
+
+# Alternative API route (recommended)
+# [[routes]]
+# pattern = "strivetrackapp.com/api/*"
+# zone_id = "YOUR_ZONE_ID_HERE"`;
 
     fs.writeFileSync('wrangler-worker.toml', workerConfig);
     this.log('✓ Worker configuration created', 'success');

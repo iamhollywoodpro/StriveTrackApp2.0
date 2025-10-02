@@ -1,0 +1,122 @@
+# DNS Configuration for strivetrackapp.com
+# Copy these DNS records to your domain registrar or Cloudflare DNS
+
+# ====================================================================
+# REQUIRED DNS RECORDS FOR STRIVETRACKAPP.COM
+# ====================================================================
+
+# Main website (apex domain)
+Type: CNAME
+Name: @ (or strivetrackapp.com)
+Target: strivetrackapp2-0.pages.dev
+Proxy Status: Proxied (Orange Cloud ON)
+TTL: Auto
+
+# WWW subdomain (recommended for SEO)
+Type: CNAME  
+Name: www
+Target: strivetrackapp2-0.pages.dev
+Proxy Status: Proxied (Orange Cloud ON)
+TTL: Auto
+
+# API subdomain for backend endpoints
+Type: CNAME
+Name: api
+Target: strivetrack-api.[YOUR_ACCOUNT_ID].workers.dev
+Proxy Status: Proxied (Orange Cloud ON)
+TTL: Auto
+
+# ====================================================================
+# OPTIONAL DNS RECORDS (RECOMMENDED)
+# ====================================================================
+
+# Media/CDN subdomain (for R2 storage)
+Type: CNAME
+Name: media
+Target: pub-[YOUR_ACCOUNT_ID].r2.dev
+Proxy Status: Proxied (Orange Cloud ON)
+TTL: Auto
+
+# Admin subdomain (optional - points to main app)
+Type: CNAME
+Name: admin
+Target: strivetrackapp2-0.pages.dev
+Proxy Status: Proxied (Orange Cloud ON)
+TTL: Auto
+
+# ====================================================================
+# VERIFICATION & SECURITY RECORDS
+# ====================================================================
+
+# Email security (if using email features)
+Type: TXT
+Name: @
+Content: "v=spf1 include:_spf.google.com ~all"
+TTL: Auto
+
+# Domain verification (Cloudflare will provide this)
+Type: TXT
+Name: @
+Content: [Cloudflare will provide verification code]
+TTL: Auto
+
+# ====================================================================
+# INSTRUCTIONS
+# ====================================================================
+
+1. Replace [YOUR_ACCOUNT_ID] with your actual Cloudflare Account ID
+   Find it with: npx wrangler whoami
+
+2. If using Cloudflare DNS (recommended):
+   - Login to dash.cloudflare.com
+   - Go to DNS > Records
+   - Add each record above
+
+3. If using external DNS provider:
+   - Login to your domain registrar
+   - Find DNS management section  
+   - Add each CNAME record above
+   - Ensure "Proxy Status" is enabled (if supported)
+
+4. DNS Propagation:
+   - Changes take 5-10 minutes (Cloudflare DNS)
+   - Up to 48 hours (external DNS providers)
+   - Test with: nslookup strivetrackapp.com
+
+# ====================================================================
+# EXAMPLE FINAL CONFIGURATION
+# ====================================================================
+
+After setup, these URLs will work:
+✅ https://strivetrackapp.com → Main StriveTrack app
+✅ https://www.strivetrackapp.com → Redirects to main app  
+✅ https://api.strivetrackapp.com → Backend API endpoints
+✅ https://media.strivetrackapp.com → Media CDN (optional)
+
+# ====================================================================
+# TESTING COMMANDS
+# ====================================================================
+
+# Test DNS resolution
+nslookup strivetrackapp.com
+nslookup api.strivetrackapp.com
+nslookup www.strivetrackapp.com
+
+# Test HTTPS and SSL
+curl -I https://strivetrackapp.com
+curl -I https://api.strivetrackapp.com/health
+
+# Check DNS propagation worldwide  
+# Visit: https://www.whatsmydns.net/#CNAME/strivetrackapp.com
+
+# ====================================================================
+# SUPPORT INFORMATION
+# ====================================================================
+
+Cloudflare Account ID: Run 'npx wrangler whoami'
+Zone ID: Run 'npx wrangler zone list' 
+Project Name: strivetrackapp2-0
+Worker Name: strivetrack-api
+
+Generated: ${new Date().toISOString()}
+Status: Ready for DNS configuration
